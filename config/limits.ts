@@ -8,7 +8,7 @@
  */
 
 import type { ImageFormat } from '@/lib/pipeline/formats'
-import type { PipelineLimits } from '@/lib/pipeline/types'
+import type { PipelineLimits } from '@/lib/pipeline/operation'
 import { site } from './site'
 
 const MEGABYTE = 1_024 * 1_024

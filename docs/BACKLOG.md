@@ -36,6 +36,7 @@ the author could check.
 | P0-10 | done | Pipeline model, validation and error taxonomy |
 | P0-11 | done | Versioned pipeline schema with migration chain |
 | P0-12 | done | Docs, ADRs, repo skills, CI |
+| P0-13 | done | Split operations into independent modules; add the primary/optional feature model |
 
 ---
 

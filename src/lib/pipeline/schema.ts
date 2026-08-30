@@ -1,10 +1,14 @@
 /**
  * Serialises a pipeline to a URL-safe string, and back.
  *
- * Why this exists in phase 0, before anything reads it: once shareable links ship,
- * every encoded pipeline anyone has saved or published becomes a permanent public
- * contract. Adding versioning after the fact means breaking those links. Adding it
- * now costs one integer.
+ * Why this exists before anything reads it: once shareable links ship, every encoded
+ * pipeline anyone has saved or published becomes a permanent public contract. Adding
+ * versioning after the fact means breaking those links. Adding it now costs one
+ * integer.
+ *
+ * This file owns the envelope — versioning, migration, base64 — and nothing else.
+ * Each transform is parsed by its own operation module, so adding an operation never
+ * touches this file.
  *
  * Contract:
  *   - `v` is the schema version and is always the first thing read.
@@ -15,13 +19,8 @@
 
 import { fail, ok, type Result } from './errors'
 import { isImageFormat } from './formats'
-import {
-  type OutputSpec,
-  type Pipeline,
-  QUALITY_RANGE,
-  type ResizeMode,
-  type Transform,
-} from './types'
+import { parseTransform } from './registry'
+import { type OutputSpec, type Pipeline, QUALITY_RANGE, type Transform } from './types'
 
 export const CURRENT_SCHEMA_VERSION = 1
 
@@ -31,8 +30,8 @@ type VersionedPayload = { readonly v: number } & Record<string, unknown>
  * Migrations from version N to N+1, keyed by the version being upgraded FROM.
  *
  * Empty until the first breaking change. When adding one: bump
- * CURRENT_SCHEMA_VERSION, add the entry, and add a decode test using a real
- * captured payload from the old version.
+ * CURRENT_SCHEMA_VERSION, add the entry, and add a decode test using a real captured
+ * payload from the old version.
  */
 const MIGRATIONS: Record<number, (payload: VersionedPayload) => VersionedPayload> = {}
 
@@ -53,20 +52,11 @@ export function decodePipeline(encoded: string): Result<Pipeline> {
   try {
     parsed = JSON.parse(json.value)
   } catch (cause) {
-    return fail('INVALID_PIPELINE', {
-      message: "This link's settings couldn't be read.",
-      detail: 'payload is not valid JSON',
-      stage: 'validate',
-      cause,
-    })
+    return invalid('payload is not valid JSON', cause)
   }
 
   if (!isRecord(parsed) || typeof parsed.v !== 'number') {
-    return fail('INVALID_PIPELINE', {
-      message: "This link's settings couldn't be read.",
-      detail: 'payload is missing a version field',
-      stage: 'validate',
-    })
+    return invalid('payload is missing a version field')
   }
 
   const migrated = migrate(parsed as VersionedPayload)
@@ -105,16 +95,16 @@ function parsePipeline(payload: VersionedPayload): Result<Pipeline> {
   if (!output.ok) return output
 
   if (!Array.isArray(payload.t)) {
-    return fail('INVALID_PIPELINE', {
-      message: "This link's settings couldn't be read.",
-      detail: 'transforms is not an array',
-      stage: 'validate',
-    })
+    return invalid('transforms is not an array')
   }
 
   const transforms: Transform[] = []
   for (const raw of payload.t) {
-    const transform = parseTransform(raw)
+    if (!isRecord(raw) || typeof raw.kind !== 'string') {
+      return invalid('transform is missing a kind')
+    }
+
+    const transform = parseTransform(raw.kind, raw)
     if (!transform.ok) return transform
     transforms.push(transform.value)
   }
@@ -126,9 +116,11 @@ function parseOutput(raw: unknown): Result<OutputSpec> {
   if (!isRecord(raw)) {
     return invalid('output is not an object')
   }
-  if (typeof raw.format !== 'string' || !isImageFormat(raw.format)) {
+
+  if (typeof raw.format !== 'string' || !(raw.format === 'source' || isImageFormat(raw.format))) {
     return invalid(`unknown output format: ${String(raw.format)}`)
   }
+
   if (
     typeof raw.quality !== 'number' ||
     !Number.isInteger(raw.quality) ||
@@ -137,90 +129,16 @@ function parseOutput(raw: unknown): Result<OutputSpec> {
   ) {
     return invalid(`quality out of range: ${String(raw.quality)}`)
   }
+
   return ok({ format: raw.format, quality: raw.quality })
 }
 
-const RESIZE_MODES: readonly ResizeMode[] = ['contain', 'cover', 'exact']
-const ROTATIONS = [0, 90, 180, 270] as const
-
-function parseTransform(raw: unknown): Result<Transform> {
-  if (!isRecord(raw) || typeof raw.kind !== 'string') {
-    return invalid('transform is missing a kind')
-  }
-
-  switch (raw.kind) {
-    case 'resize':
-      return parseResize(raw)
-    case 'crop':
-      return parseCrop(raw)
-    case 'rotate':
-      return parseRotate(raw)
-    case 'metadata':
-      return parseMetadata(raw)
-    default:
-      return invalid(`unknown transform kind: ${raw.kind}`)
-  }
-}
-
-function parseResize(raw: Record<string, unknown>): Result<Transform> {
-  const mode = RESIZE_MODES.find((candidate) => candidate === raw.mode)
-  if (!mode) return invalid(`unknown resize mode: ${String(raw.mode)}`)
-
-  const width = parseOptionalDimension(raw.width)
-  const height = parseOptionalDimension(raw.height)
-  if (width === 'invalid' || height === 'invalid') return invalid('resize dimension is invalid')
-
-  return ok({
-    kind: 'resize',
-    mode,
-    allowUpscale: raw.allowUpscale === true,
-    ...(width === undefined ? {} : { width }),
-    ...(height === undefined ? {} : { height }),
-  })
-}
-
-function parseCrop(raw: Record<string, unknown>): Result<Transform> {
-  const values = ['x', 'y', 'width', 'height'].map((key) => raw[key])
-  if (!values.every((value) => typeof value === 'number' && Number.isInteger(value))) {
-    return invalid('crop values must be integers')
-  }
-
-  const [x, y, width, height] = values as [number, number, number, number]
-  return ok({ kind: 'crop', x, y, width, height })
-}
-
-function parseRotate(raw: Record<string, unknown>): Result<Transform> {
-  const degrees = ROTATIONS.find((candidate) => candidate === raw.degrees)
-  if (degrees === undefined) return invalid(`unknown rotation: ${String(raw.degrees)}`)
-
-  return ok({
-    kind: 'rotate',
-    degrees,
-    flipHorizontal: raw.flipHorizontal === true,
-    flipVertical: raw.flipVertical === true,
-  })
-}
-
-function parseMetadata(raw: Record<string, unknown>): Result<Transform> {
-  return ok({
-    kind: 'metadata',
-    stripExif: raw.stripExif === true,
-    keepColorProfile: raw.keepColorProfile === true,
-  })
-}
-
-/** Returns undefined for an absent value, 'invalid' for a present but unusable one. */
-function parseOptionalDimension(value: unknown): number | undefined | 'invalid' {
-  if (value === undefined || value === null) return undefined
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) return 'invalid'
-  return value
-}
-
-function invalid<T>(detail: string): Result<T> {
+function invalid<T>(detail: string, cause?: unknown): Result<T> {
   return fail('INVALID_PIPELINE', {
     message: "This link's settings couldn't be read.",
     detail,
     stage: 'validate',
+    ...(cause === undefined ? {} : { cause }),
   })
 }
 
@@ -244,11 +162,6 @@ function fromBase64Url(encoded: string): Result<string> {
     const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0))
     return ok(new TextDecoder().decode(bytes))
   } catch (cause) {
-    return fail('INVALID_PIPELINE', {
-      message: "This link's settings couldn't be read.",
-      detail: 'payload is not valid base64url',
-      stage: 'validate',
-      cause,
-    })
+    return invalid('payload is not valid base64url', cause)
   }
 }

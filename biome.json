@@ -1,6 +1,10 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.11/schema.json",
-  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "files": {
     "includes": ["**", "!**/.next", "!**/node_modules", "!**/pnpm-lock.yaml"]
   },
@@ -16,12 +20,19 @@
       "recommended": true,
       "suspicious": {
         "noExplicitAny": "error",
-        "noConsole": { "level": "warn", "options": { "allow": ["warn", "error"] } }
+        "noConsole": {
+          "level": "warn",
+          "options": {
+            "allow": ["warn", "error"]
+          }
+        }
       },
       "complexity": {
         "noExcessiveCognitiveComplexity": {
           "level": "warn",
-          "options": { "maxAllowedComplexity": 15 }
+          "options": {
+            "maxAllowedComplexity": 15
+          }
         }
       },
       "style": {
@@ -32,17 +43,47 @@
     }
   },
   "javascript": {
-    "formatter": { "quoteStyle": "single", "semicolons": "asNeeded", "trailingCommas": "all" }
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "asNeeded",
+      "trailingCommas": "all"
+    }
   },
   "css": {
-    "parser": { "tailwindDirectives": true }
+    "parser": {
+      "tailwindDirectives": true
+    }
   },
   "overrides": [
     {
       "includes": ["src/app/globals.css"],
       "linter": {
         "rules": {
-          "complexity": { "noImportantStyles": "off" }
+          "complexity": {
+            "noImportantStyles": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/lib/pipeline/operations/**", "!**/*.test.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "./crop": "Operations must stay independent. Shared logic belongs in a shared module, not a sibling import. See docs/adr/0005.",
+                  "./resize": "Operations must stay independent. Shared logic belongs in a shared module, not a sibling import. See docs/adr/0005.",
+                  "./rotate": "Operations must stay independent. Shared logic belongs in a shared module, not a sibling import. See docs/adr/0005.",
+                  "./metadata": "Operations must stay independent. Shared logic belongs in a shared module, not a sibling import. See docs/adr/0005.",
+                  "../registry": "Operations must not depend on the registry that dispatches to them. That is a cycle.",
+                  "../types": "Operations own their own transform type. Importing the assembled union is a cycle."
+                }
+              }
+            }
+          }
         }
       }
     }

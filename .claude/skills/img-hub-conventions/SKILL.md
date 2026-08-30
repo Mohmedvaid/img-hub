@@ -18,7 +18,9 @@ for *this* codebase.
 | A response header | `config/security.ts` |
 | A tool page or format pair | `config/tools.ts` |
 | A fact about an image format | `src/lib/pipeline/formats.ts` |
-| A transform or output option | `src/lib/pipeline/types.ts` |
+| A new operation (crop, resize, watermark…) | a new file in `src/lib/pipeline/operations/` |
+| A page-level feature or its checkbox copy | `src/lib/pipeline/features.ts` |
+| Enumeration, ordering or dispatch | `src/lib/pipeline/registry.ts` |
 | An error code | `src/lib/pipeline/errors.ts` |
 | Anything touching the encoded URL form | `src/lib/pipeline/schema.ts` + a version bump |
 
@@ -71,14 +73,41 @@ Transforms are an ordered list; encoding is a separate terminal step. That is
 deliberate: "encode happens last, exactly once" is then true by construction rather
 than a rule that validation has to catch.
 
-Adding a transform:
-1. Add its type to the `Transform` union in `types.ts`.
-2. Handle it in `validateTransform`. The switch is exhaustive; TypeScript will point
-   at every site that needs updating.
-3. Add a `parse*` function in `schema.ts` and wire it into `parseTransform`.
-4. Bump `CURRENT_SCHEMA_VERSION` and add a migration **if the change is not purely
+### Operations are independent
+
+Each operation is one file under `operations/`, implementing `OperationModule`: its
+transform type, `defaults()`, `validate()` and `parse()`.
+
+**Operations never import each other.** If one needs another's logic, that logic
+belongs in a shared module, not in a cross-import. This is enforced by a
+`noRestrictedImports` rule in `biome.json`, not left to review — the same rule also
+blocks importing `registry.ts` or `types.ts` from an operation, since both would be
+cycles.
+
+Adding an operation:
+1. Create `operations/<name>.ts` exporting its transform type and its module.
+2. Add the type to the `Transform` union in `types.ts`.
+3. Add it to `OPERATIONS` in `registry.ts`, and one line to each of the three
+   delegating switches. They are exhaustive, so TypeScript names every spot.
+4. Add it to `features.ts` if it is user-facing, with its label, hint and `hasFields`.
+5. Bump `CURRENT_SCHEMA_VERSION` and add a migration **if the change is not purely
    additive**.
-5. Add round-trip and rejection tests.
+6. The shared contract tests in `operations/operations.test.ts` cover it
+   automatically. Add cases for anything specific to it.
+
+The switches in `registry.ts` are pure delegation — one line per operation, no logic.
+If one grows a condition, that condition belongs in the operation module.
+
+### Features versus operations
+
+`features.ts` is the page layer, not the engine layer. `convert` and `compress` are
+two features over one encode step, because they are two search intents.
+
+A page names one **primary** feature; the optional checkboxes are derived from the
+rest. Never hand-write a per-page list of optional features — adding a feature must
+light it up everywhere at once.
+
+Set `hasFields: false` when ticking the checkbox is the whole interaction.
 
 ## Anti-patterns to reject
 

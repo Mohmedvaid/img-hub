@@ -6,6 +6,23 @@ when they ship; [BACKLOG.md](BACKLOG.md) owns the tickets.
 A feature is specified here before it is built. If a spec cannot state its acceptance
 criteria, the feature is not understood well enough to start.
 
+## How features appear on a page
+
+Every tool page names one **primary** feature. It is always on, cannot be switched
+off, and gets the main UI — it is what the page ranks for. Every other feature shows
+as an **optional checkbox** below it.
+
+Ticking an optional feature reveals its fields. Some have none: ticking "also
+compress" applies a sensible default quality and shows no slider, because tuning
+quality is the compressor page's job, where compress is primary. `FeatureInfo.hasFields`
+records which is which.
+
+A page never changes something the visitor did not ask about. Non-conversion pages
+keep the source format, so cropping a PNG returns a PNG unless convert is ticked.
+
+The optional list is derived from the primary, so adding a feature offers it on every
+existing page at once.
+
 ---
 
 ## Pipeline builder

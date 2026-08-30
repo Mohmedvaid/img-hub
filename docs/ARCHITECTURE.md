@@ -5,8 +5,8 @@ How ImgHub is built and why. Decisions that were expensive to make are recorded 
 
 ## The one-sentence version
 
-Every tool in the product is the same ordered pipeline running in a Web Worker on the
-user's own device, with a different preset and different copy per page.
+Independent operation modules, one shared runner, and one indexed page per operation
+where that operation leads and the rest are optional extras.
 
 ## The core idea
 
@@ -27,6 +27,45 @@ That one structure serves three purposes at once:
 3. **Code.** Image operations live in exactly one place. There is no "resize engine"
    separate from a "convert engine".
 
+## Operations and features
+
+Two layers, with different jobs. Confusing them is the main way this design gets
+misread.
+
+**Operations** are the engine's units of work. Each is one file under
+`src/lib/pipeline/operations/`, owning its transform type, defaults, validation and
+parsing behind the `OperationModule` contract. **Operations never import each other.**
+Adding one is a new file plus one line in each of three delegating switches in
+`registry.ts`; those switches are exhaustive, so a missing line is a compile error
+naming the exact spot.
+
+**Features** are the page's units of choice, in `src/lib/pipeline/features.ts`. A
+feature carries its label, its hint, and whether enabling it reveals any fields.
+
+The lists are not identical on purpose. `convert` and `compress` are two features
+driving the single encode step, because they are two search intents wanting different
+controls in front of them.
+
+## How a tool page works
+
+Every page names one **primary** feature in `config/tools.ts`:
+
+- The primary feature is **always on**, cannot be switched off, and gets the main UI.
+  It is what the page ranks for.
+- Every other feature becomes an **optional checkbox**, derived rather than listed.
+  Ticking it reveals that feature's fields — or nothing at all, when `hasFields` is
+  false. Compression is the case that motivated this: ticking "also compress" applies
+  a sensible quality and shows no slider, because tuning quality is the compressor
+  page's job.
+
+Because the optional list is derived, adding a feature offers it on every existing
+page without touching a single tool definition.
+
+`OutputSpec.format` can be `'source'`, which is what makes conversion genuinely
+optional. On a cropper page the visitor has said nothing about format, so the output
+keeps the input's. Without it every page would silently convert — a change the user
+never asked for.
+
 Tool pages deep-link into the full builder, which is how a visitor who arrived for
 one operation discovers the rest.
 
@@ -43,9 +82,17 @@ config/            Everything brand-, environment- or policy-specific (ADR-0003)
 
 src/lib/pipeline/  The engine. No React, no DOM assumptions, fully unit-testable
   formats.ts         Format facts: MIME types, alpha/animation support, encode cost
-  types.ts           Transform union, OutputSpec, Pipeline, validation
+  operation.ts       The OperationModule contract every operation implements
+  operations/        One file per operation. They never import each other
+    crop.ts            Owns CropTransform, its defaults, validation and parsing
+    resize.ts
+    rotate.ts
+    metadata.ts
+  types.ts           Transform union, OutputSpec, Pipeline. Assembly only
+  registry.ts        Enumeration, ordering, and delegating dispatch (ADR-0005)
+  features.ts        The page layer: what a page offers and what leads
   errors.ts          Error taxonomy and the Result type
-  schema.ts          Versioned URL encoding and migrations (ADR-0004)
+  schema.ts          Versioned URL envelope and migrations (ADR-0004)
 
 src/lib/seo/       Metadata construction from config
 src/app/           Routes, layout, robots and sitemap

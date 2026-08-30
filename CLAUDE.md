@@ -41,8 +41,14 @@ pnpm lint:fix   # format and autofix
 ## Shape of the thing
 
 Every tool is the same ordered pipeline — decode, crop, rotate, resize, strip
-metadata, encode — running in a Web Worker on the user's own device. Tool pages are
-that engine with a preset and different copy, generated from `config/tools.ts`.
+metadata, encode — running in a Web Worker on the user's own device.
+
+Each operation is an independent module under `src/lib/pipeline/operations/`; they
+never import each other. The runner is shared.
+
+Each tool page names one **primary** feature that is always on and leads the UI. Every
+other feature is a derived optional checkbox. Pages keep the source format unless
+convert is ticked, so a cropper never silently hands back a different file type.
 
 The engine returns `Result<T>` rather than throwing, because a batch is many files
 and one corrupt file must not abort the rest.

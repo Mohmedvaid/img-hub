@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { defaultPipeline, type Pipeline, type PipelineLimits, validatePipeline } from './types'
+import type { PipelineLimits } from './operation'
+import { validatePipeline } from './registry'
+import { defaultPipeline, type Pipeline } from './types'
 
 const limits: PipelineLimits = {
   maxWidth: 20_000,

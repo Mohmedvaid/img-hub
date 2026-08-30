@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { allTools, findTool, liveTools } from './tools'
+import { isFeatureId } from '@/lib/pipeline/features'
+import { allTools, findTool, liveTools, toolOptionalFeatures } from './tools'
 
 describe('tool registry', () => {
   it('derives a conversion tool for every input/output pair', () => {
-    // 5 input formats x 3 output formats, minus the 3 same-format pairs, plus 2 standalone.
     expect(allTools().length).toBeGreaterThan(10)
   })
 
@@ -22,13 +22,6 @@ describe('tool registry', () => {
     }
   })
 
-  it('gives every tool a preset whose output format is enabled', () => {
-    for (const tool of allTools()) {
-      expect(tool.preset.output.quality).toBeGreaterThanOrEqual(1)
-      expect(tool.preset.output.quality).toBeLessThanOrEqual(100)
-    }
-  })
-
   it('keeps meta descriptions within the length search engines display', () => {
     for (const tool of allTools()) {
       expect(tool.metaDescription.length).toBeLessThanOrEqual(165)
@@ -43,5 +36,68 @@ describe('tool registry', () => {
   it('looks a tool up by slug', () => {
     expect(findTool('compress-image')?.title).toBe('Compress images')
     expect(findTool('does-not-exist')).toBeUndefined()
+  })
+})
+
+describe('primary feature per page', () => {
+  it('names a real feature as primary on every tool', () => {
+    for (const tool of allTools()) {
+      expect(isFeatureId(tool.primary)).toBe(true)
+    }
+  })
+
+  it('makes the page about what its slug promises', () => {
+    expect(findTool('crop-image')?.primary).toBe('crop')
+    expect(findTool('resize-image')?.primary).toBe('resize')
+    expect(findTool('compress-image')?.primary).toBe('compress')
+    expect(findTool('rotate-image')?.primary).toBe('rotate')
+    expect(findTool('png-to-webp')?.primary).toBe('convert')
+  })
+
+  it('never offers the primary feature as an optional checkbox', () => {
+    for (const tool of allTools()) {
+      const optional = toolOptionalFeatures(tool).map((feature) => feature.id)
+      expect(optional).not.toContain(tool.primary)
+    }
+  })
+
+  it('offers every other feature as a checkbox on every page', () => {
+    for (const tool of allTools()) {
+      expect(toolOptionalFeatures(tool).length).toBeGreaterThan(0)
+    }
+  })
+})
+
+describe('presets do not do more than the page promises', () => {
+  it('keeps the source format on non-conversion pages', () => {
+    // A visitor who came to crop said nothing about format. Handing them a WebP
+    // would be a change they never asked for.
+    for (const slug of ['crop-image', 'resize-image', 'compress-image', 'rotate-image']) {
+      expect(findTool(slug)?.preset.output.format).toBe('source')
+    }
+  })
+
+  it('sets an explicit target format only on conversion pages', () => {
+    const tool = findTool('png-to-webp')
+
+    expect(tool?.preset.output.format).toBe('webp')
+    expect(tool?.conversion).toEqual({ from: 'png', to: 'webp' })
+  })
+
+  it('preloads the primary feature transform on pages that have one', () => {
+    expect(findTool('resize-image')?.preset.transforms.some((t) => t.kind === 'resize')).toBe(true)
+    expect(findTool('crop-image')?.preset.transforms.some((t) => t.kind === 'crop')).toBe(true)
+    expect(findTool('rotate-image')?.preset.transforms.some((t) => t.kind === 'rotate')).toBe(true)
+  })
+
+  it('keeps every preset quality in range', () => {
+    for (const tool of allTools()) {
+      expect(tool.preset.output.quality).toBeGreaterThanOrEqual(1)
+      expect(tool.preset.output.quality).toBeLessThanOrEqual(100)
+    }
+  })
+
+  it('uses a lossless quality when converting to a lossless format', () => {
+    expect(findTool('jpg-to-png')?.preset.output.quality).toBe(100)
   })
 })
