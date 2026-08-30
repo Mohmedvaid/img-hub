@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+/*
+ * Maps Tailwind's utility namespaces onto the design tokens emitted by
+ * config/theme.ts. `inline` makes each utility reference the custom property at
+ * runtime rather than baking in a value, which is what lets dark mode swap by
+ * redefining variables alone.
+ *
+ * Token VALUES live in config/theme.ts. This file only names them. You edit it
+ * when adding a new token, never when changing an existing one.
+ */
+@theme inline {
+  --color-bg-base: var(--t-bg-base);
+  --color-bg-raised: var(--t-bg-raised);
+  --color-bg-sunken: var(--t-bg-sunken);
+
+  --color-fg-primary: var(--t-fg-primary);
+  --color-fg-secondary: var(--t-fg-secondary);
+  --color-fg-muted: var(--t-fg-muted);
+
+  --color-border: var(--t-border);
+  --color-border-strong: var(--t-border-strong);
+
+  --color-brand: var(--t-brand);
+  --color-brand-hover: var(--t-brand-hover);
+  --color-brand-fg: var(--t-brand-fg);
+  --color-brand-subtle: var(--t-brand-subtle);
+
+  --color-success: var(--t-success);
+  --color-warning: var(--t-warning);
+  --color-danger: var(--t-danger);
+  --color-danger-subtle: var(--t-danger-subtle);
+
+  --font-sans: var(--t-font-sans);
+  --font-mono: var(--t-font-mono);
+
+  --radius-sm: var(--t-radius-sm);
+  --radius-md: var(--t-radius-md);
+  --radius-lg: var(--t-radius-lg);
+}
+
+body {
+  background-color: var(--t-bg-base);
+  color: var(--t-fg-primary);
+  font-family: var(--t-font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Respect a user who has asked the OS to reduce motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
