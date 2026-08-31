@@ -156,7 +156,7 @@ const STANDALONE_TOOLS: readonly ToolDefinition[] = [
     indexable: true,
     primary: 'rotate',
     title: 'Rotate & flip images',
-    metaTitle: 'Rotate and Flip Images Online — Free, Private, No Upload',
+    metaTitle: 'Rotate & Flip Images Online — Free and Private',
     metaDescription:
       'Rotate images in 90° steps or mirror them. Crop, resize and convert in the same pass. Nothing is uploaded.',
     preset: {
