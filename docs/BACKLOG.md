@@ -184,6 +184,36 @@ noindex on every page and `robots.txt` disallows everything, so nothing here is
 urgent — but none of it should be skipped, because the first crawl sets a first
 impression that takes months to revise.
 
+### P2-01 · AVIF output
+**Status:** todo — attempted and reverted, see below
+
+AVIF produces roughly 20-30% smaller files than WebP at the same visual quality.
+The engine already supports it: `formats.ts` records it as encodable with
+`encodeCost: 'slow'`, and it ships behind `site.features.avifOutput`, which is off.
+
+**Tried on 2026-08-31 and reverted.** `@jsquash/avif` takes a cold production build
+from **13s to 112s**, measured on an otherwise idle machine. The package is 8 MB
+unpacked and ships `codec/enc/avif_enc_mt.worker.mjs`, a multi-threaded encoder the
+bundler has to process.
+
+This is the same trap as `@jsquash/oxipng` in P1-12, and the same reason applies: the
+multi-threaded build needs WebAssembly threads, which need SharedArrayBuffer, which
+needs the COOP/COEP headers ADR-0002 permanently forbids. It can never run here, so
+the build cost buys nothing.
+
+Reopen with a plan for the bundling, not just the feature:
+
+1. Stop the multi-threaded build reaching the bundler — a Turbopack `resolveAlias`
+   stub, or importing the single-threaded codec directly. Prove it before writing UI.
+2. Weigh the gain honestly. AVIF is 20-30% smaller than WebP but 5-20x slower to
+   encode: 2-5s for a 12MP image on a fast preset. On a phone that is a poor trade,
+   and WebP already delivers most of the win.
+3. A slow-encode warning has to ship with it, or the first thing a user does is
+   assume the page has hung.
+
+**Done when** AVIF encodes correctly, a warning appears before a slow run, and a cold
+`pnpm build` stays under 30s.
+
 ### P3-01 · SEO audit before launch
 **Status:** todo · **Blocks:** enabling indexing
 
