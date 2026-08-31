@@ -11,7 +11,7 @@ file is a view, not a source. If the two disagree, the backlog is right.
 |---|---|
 | Done | 13 |
 | In progress | 0 |
-| To do (Phase 1) | 9 |
+| To do (Phase 1) | 10 |
 | Blocked | 0 |
 
 ## In progress
@@ -50,7 +50,7 @@ changes when the answers arrive.
 | Check | State |
 |---|---|
 | CI | Passing |
-| Tests | 122 passing |
+| Tests | 126 passing |
 | Typecheck | Clean, strict mode |
 | Lint | Clean |
 | Production build | Passing, all routes static |

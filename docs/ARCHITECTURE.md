@@ -15,7 +15,7 @@ unrelated pages, so doing all three means three uploads and three downloads. Img
 models the work as a single pipeline instead:
 
 ```
-decode → [crop] → [rotate] → [resize] → [strip metadata] → encode
+decode → [rotate] → [crop] → [resize] → [strip metadata] → encode
 ```
 
 That one structure serves three purposes at once:
@@ -119,6 +119,20 @@ Codecs come from jSquash rather than wasm-vips, because wasm-vips requires
 `SharedArrayBuffer`, which requires COOP/COEP headers, which break AdSense
 permanently (ADR-0002). **COOP and COEP must never be set.** `config/security.ts`
 owns every header and repeats this warning at the point of change.
+
+## Order is load-bearing
+
+The operation order is fixed and asserted by tests, not left to the sequence a user
+enabled things in. Reordering changes the output of identical saved settings, which
+would break shareable links. ADR-0006 has the full reasoning; the two facts to carry:
+
+- **Crop coordinates are in post-rotation pixels.** Crop runs after rotate, so a box
+  the user drew on a rotated preview lands where they drew it. The UI remaps the
+  stored rectangle when rotation changes.
+- **Decoding auto-orients from EXIF before anything else runs.** Phone photos carry an
+  Orientation tag; stripping it without baking the rotation into pixels leaves them
+  sideways. Since EXIF stripping is on by default, this is a correctness requirement,
+  not an enhancement.
 
 Geometry (resize, crop, rotate) uses Canvas. Encoding uses the WASM codecs, because
 browser-native encoders produce visibly worse files at the same byte size, and

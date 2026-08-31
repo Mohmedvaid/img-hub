@@ -21,10 +21,26 @@ import { resizeOperation } from './operations/resize'
 import { rotateOperation } from './operations/rotate'
 import { type Pipeline, QUALITY_RANGE, type Transform, type TransformKind } from './types'
 
-/** Every operation, in the order they are applied to an image. */
+/**
+ * Every operation, in the order they are applied to an image.
+ *
+ * The order is fixed and load-bearing, not a default. See
+ * docs/adr/0006-fixed-pipeline-order.md:
+ *
+ *   rotate  first, because crop coordinates are defined against the rotated image.
+ *           Cropping first would apply a box the user drew on a rotated preview to
+ *           the unrotated pixels, selecting the wrong region entirely.
+ *   crop    before resize, so the resize box applies to the final composition and
+ *           so resizing never discards resolution the crop then magnifies.
+ *   resize  after the frame is settled.
+ *   metadata last: it is an encode-time flag, not a pixel operation.
+ *
+ * Decoding auto-orients from the EXIF tag before any of this runs, so `rotate` here
+ * only ever means the user's own explicit turn.
+ */
 export const OPERATIONS = [
-  cropOperation,
   rotateOperation,
+  cropOperation,
   resizeOperation,
   metadataOperation,
 ] as const

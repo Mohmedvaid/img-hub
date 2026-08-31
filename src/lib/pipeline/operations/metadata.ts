@@ -5,6 +5,15 @@
  * numbers, and removing it both protects the user and shrinks the file. The colour
  * profile is kept by default because dropping it visibly shifts colours on wide-gamut
  * images, which looks like a bug.
+ *
+ * SAFETY REQUIREMENT — stripping EXIF is only safe because decoding auto-orients
+ * first. The Orientation tag tells viewers to display the pixels rotated; removing it
+ * without having rotated the pixels leaves every phone photo sideways for anyone
+ * whose viewer honoured the tag. Decode must bake orientation in and reset the tag.
+ * If that step is ever removed, this operation becomes a bug.
+ *
+ * This is a flag, not a pixel operation: it is applied at encode time. It sits last
+ * in the pipeline for that reason.
  */
 
 import { ok, type Result } from '../errors'

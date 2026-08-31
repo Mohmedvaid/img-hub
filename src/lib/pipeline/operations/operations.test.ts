@@ -115,30 +115,58 @@ describe('operations stay independent', () => {
   })
 })
 
-describe('sortTransforms', () => {
+describe('pipeline order', () => {
   it('applies operations in pipeline order however they were added', () => {
     const scrambled: Transform[] = [
       { kind: 'metadata', stripExif: true, keepColorProfile: true },
       { kind: 'resize', mode: 'contain', width: 100, allowUpscale: false },
-      { kind: 'rotate', degrees: 90, flipHorizontal: false, flipVertical: false },
       { kind: 'crop', x: 0, y: 0, width: 10, height: 10 },
+      { kind: 'rotate', degrees: 90, flipHorizontal: false, flipVertical: false },
     ]
 
     expect(sortTransforms(scrambled).map((transform) => transform.kind)).toEqual([
-      'crop',
       'rotate',
+      'crop',
       'resize',
       'metadata',
     ])
   })
 
-  it('crops before resizing, so crop coordinates match what the user saw', () => {
-    const order = sortTransforms([
+  it('rotates before cropping, because crop coordinates are in post-rotation space', () => {
+    // Reversing these silently selects the wrong region: the user drew the box on a
+    // rotated preview, so applying it to unrotated pixels crops somewhere else
+    // entirely. See operations/crop.ts and docs/adr/0006.
+    const order = orderOf([
+      { kind: 'crop', x: 0, y: 0, width: 10, height: 10 },
+      { kind: 'rotate', degrees: 90, flipHorizontal: false, flipVertical: false },
+    ])
+
+    expect(order.indexOf('rotate')).toBeLessThan(order.indexOf('crop'))
+  })
+
+  it('crops before resizing, so the resize box applies to the final composition', () => {
+    // Reversing these also throws away resolution the crop then has to magnify.
+    const order = orderOf([
       { kind: 'resize', mode: 'contain', width: 100, allowUpscale: false },
       { kind: 'crop', x: 0, y: 0, width: 10, height: 10 },
-    ]).map((transform) => transform.kind)
+    ])
 
     expect(order.indexOf('crop')).toBeLessThan(order.indexOf('resize'))
+  })
+
+  it('leaves metadata last, since it is an encode-time flag not a pixel operation', () => {
+    const order = orderOf([
+      { kind: 'metadata', stripExif: true, keepColorProfile: true },
+      { kind: 'rotate', degrees: 90, flipHorizontal: false, flipVertical: false },
+    ])
+
+    expect(order.at(-1)).toBe('metadata')
+  })
+
+  it('orders every registered operation, leaving none unplaced', () => {
+    const everything = OPERATIONS.map((operation) => defaultsFor(operation.kind))
+
+    expect(sortTransforms(everything)).toHaveLength(OPERATIONS.length)
   })
 
   it('does not mutate the array it is given', () => {
@@ -153,3 +181,7 @@ describe('sortTransforms', () => {
     expect(original).toEqual(snapshot)
   })
 })
+
+function orderOf(transforms: Transform[]): string[] {
+  return sortTransforms(transforms).map((transform) => transform.kind)
+}

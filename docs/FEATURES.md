@@ -31,9 +31,11 @@ existing page at once.
 
 The core surface. A visitor picks files, chains operations, and runs them once.
 
-Operations apply in a fixed order — crop, rotate, resize, metadata — then encode.
-Order is fixed because it is the order that produces predictable results: cropping
-after resizing means the crop coordinates refer to dimensions the user never saw.
+Operations apply in a fixed order — rotate, crop, resize, metadata — then encode,
+with EXIF auto-orientation baked in at decode before any of it. The order is a
+correctness requirement, not a simplification: crop coordinates only mean something
+relative to a known orientation, so reordering would change what identical settings
+produce. See ADR-0006.
 
 **Acceptance**
 - Resize, convert and compress apply together in one pass over the source
@@ -42,8 +44,9 @@ after resizing means the crop coordinates refer to dimensions the user never saw
 - Invalid combinations show the message from `validatePipeline`
 - A pipeline persists while files are added or removed
 
-**Not included:** arbitrary operation reordering. The fixed order is a product
-decision, not a limitation to remove later.
+**Not included:** arbitrary operation reordering. The order is what makes a saved
+pipeline mean the same thing every time it runs, so it is a correctness guarantee
+rather than a limitation to remove later.
 
 ---
 

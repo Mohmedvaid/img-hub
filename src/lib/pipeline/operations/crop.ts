@@ -1,8 +1,23 @@
 /**
- * Crop. Cuts a rectangle out of the source.
+ * Crop. Cuts a rectangle out of the image.
  *
- * Runs before resize, so the coordinates always refer to the dimensions the user
- * was looking at when they drew the selection.
+ * COORDINATE SPACE — the contract the UI must honour:
+ *
+ * `x`, `y`, `width` and `height` are in **post-rotation** pixels. Crop runs after
+ * `rotate`, so the box is measured against the image as the user sees it once their
+ * own rotation has been applied (EXIF auto-orientation is already baked in at decode).
+ *
+ * This matters because it decides who does the work. When the user changes rotation
+ * after drawing a box, the UI must remap the stored rectangle into the new
+ * orientation. Through a 90° turn that remap is exact and lossless, so nothing is
+ * lost by putting it there.
+ *
+ * The alternative — storing coordinates against the unrotated source — was rejected
+ * because rotation is set once and rarely, while the crop box is dragged constantly.
+ * Anchoring to the stable thing keeps the common interaction free of conversions.
+ *
+ * Crop also runs before resize, so the resize box applies to the final composition,
+ * and so a resize never throws away resolution the crop would then have to magnify.
  */
 
 import { ok, pipelineError, type Result } from '../errors'

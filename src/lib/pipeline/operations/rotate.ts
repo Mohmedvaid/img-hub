@@ -1,6 +1,15 @@
 /**
  * Rotate and flip. Right-angle rotation only.
  *
+ * This is the user's OWN explicit turn, and it is separate from EXIF
+ * auto-orientation. A phone photo arrives with an Orientation tag saying how it
+ * should be displayed; decoding bakes that into the pixels before any operation
+ * runs, so `degrees: 0` here means "as the user sees it", never "as the sensor
+ * recorded it". Conflating the two is how images end up sideways.
+ *
+ * Runs first in the pipeline, because crop coordinates are defined against the
+ * rotated image. See operations/crop.ts for that contract.
+ *
  * Arbitrary-angle rotation is deliberately absent: it needs a fill colour or
  * transparency for the corners it exposes, which is a product decision nobody has
  * made. Adding it later means a new field, not a new operation.

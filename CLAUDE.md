@@ -40,8 +40,10 @@ pnpm lint:fix   # format and autofix
 
 ## Shape of the thing
 
-Every tool is the same ordered pipeline — decode, crop, rotate, resize, strip
-metadata, encode — running in a Web Worker on the user's own device.
+Every tool is the same ordered pipeline — decode, rotate, crop, resize, strip
+metadata, encode — running in a Web Worker on the user's own device. The order is
+fixed and load-bearing, not a default; ADR-0006 explains why, including why crop
+coordinates are in post-rotation space.
 
 Each operation is an independent module under `src/lib/pipeline/operations/`; they
 never import each other. The runner is shared.

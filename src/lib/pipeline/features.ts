@@ -85,10 +85,16 @@ const FEATURES: Record<FeatureId, FeatureInfo> = {
   },
 }
 
-/** Display order. Roughly the order the operations apply, with encode last. */
+/**
+ * Display order, mirroring the order operations actually apply (see
+ * `OPERATIONS` in registry.ts), with the encode-time features last.
+ *
+ * Keeping the two aligned means the checkbox list reads in the order things happen
+ * to the image, so a user reasoning about the result reads top to bottom.
+ */
 export const FEATURE_ORDER: readonly FeatureId[] = [
-  'crop',
   'rotate',
+  'crop',
   'resize',
   'convert',
   'compress',

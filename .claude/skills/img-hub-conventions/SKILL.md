@@ -98,6 +98,23 @@ Adding an operation:
 The switches in `registry.ts` are pure delegation — one line per operation, no logic.
 If one grows a condition, that condition belongs in the operation module.
 
+### Order is fixed and load-bearing
+
+`OPERATIONS` in `registry.ts` defines the apply order: **rotate → crop → resize →
+metadata**, with EXIF auto-orientation baked in at decode before any of it.
+
+Do not reorder it. Crop coordinates are in post-rotation space, so the order is what
+makes a saved pipeline mean the same thing every run — and shareable links depend on
+that. Tests assert the order and state the reasoning; if one fails, read it before
+changing it.
+
+Two rules that follow:
+
+- Any new decode path **must** auto-orient from EXIF and reset the tag. Stripping EXIF
+  is on by default, so skipping this ships sideways phone photos.
+- A new operation goes in the position its correctness requires, not at the end.
+  Justify the position in its module doc comment.
+
 ### Features versus operations
 
 `features.ts` is the page layer, not the engine layer. `convert` and `compress` are

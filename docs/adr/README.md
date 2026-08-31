@@ -40,3 +40,4 @@ Each one, and the specific reason it lost.
 | [0003](0003-config-driven-branding.md) | Drive branding and limits from config | Accepted |
 | [0004](0004-version-the-pipeline-schema.md) | Version the pipeline schema from day one | Accepted |
 | [0005](0005-independent-operation-modules.md) | One module per operation, one shared runner | Accepted |
+| [0006](0006-fixed-pipeline-order.md) | Fix the pipeline order; anchor crop to post-rotation space | Accepted |
