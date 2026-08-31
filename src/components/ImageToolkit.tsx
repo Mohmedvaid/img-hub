@@ -1,6 +1,7 @@
 'use client'
 
 import { limits, pipelineLimits } from '@config/limits'
+import { type Preset, presets } from '@config/presets'
 import { zipSync } from 'fflate'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { type PipelineError, pipelineError } from '@/lib/pipeline/errors'
@@ -11,7 +12,13 @@ import { formatBytes } from '@/lib/pipeline/runner'
 import { PipelineClient } from '@/lib/pipeline/worker/client'
 import { type BatchFile, batchReducer, batchTotals, initialBatch } from '@/lib/ui/batch'
 import { remapCrop } from '@/lib/ui/cropGeometry'
-import { type BuilderState, hasWork, initialBuilderState, toPipeline } from '@/lib/ui/pipelineState'
+import {
+  applyPreset,
+  type BuilderState,
+  hasWork,
+  initialBuilderState,
+  toPipeline,
+} from '@/lib/ui/pipelineState'
 import { CropEditor } from './CropEditor'
 import { DropZone } from './DropZone'
 import { ErrorBoundary } from './ErrorBoundary'
@@ -35,6 +42,7 @@ export function ImageToolkit({ primary }: ImageToolkitProps) {
   const [batch, dispatch] = useReducer(batchReducer, initialBatch)
   const [builder, setBuilder] = useState<BuilderState>(() => initialBuilderState(primary))
   const [sourceFrame, setSourceFrame] = useState<{ width: number; height: number }>()
+  const [activePreset, setActivePreset] = useState<string>()
   const clientRef = useRef<PipelineClient>(null)
 
   // One worker for the page's lifetime. Created lazily so nothing is spawned for a
@@ -99,6 +107,7 @@ export function ImageToolkit({ primary }: ImageToolkitProps) {
         changeOrientation({ enabled })
         return
       }
+      setActivePreset(undefined)
       setBuilder((current) => ({ ...current, enabled: { ...current.enabled, [id]: enabled } }))
     },
     [changeOrientation],
@@ -205,7 +214,13 @@ export function ImageToolkit({ primary }: ImageToolkitProps) {
             onSourceLoad={onSourceLoad}
           />
         ) : (
-          <p className="font-medium text-fg-primary text-sm">What should we do?</p>
+          <PresetPicker
+            active={activePreset}
+            onPick={(preset) => {
+              setActivePreset(preset.id)
+              setBuilder((current) => applyPreset(current, preset))
+            }}
+          />
         )}
 
         {optional.map((feature) => (
@@ -254,6 +269,38 @@ export function ImageToolkit({ primary }: ImageToolkitProps) {
           <p className="text-fg-muted text-xs">Pick at least one thing to do.</p>
         ) : null}
       </aside>
+    </div>
+  )
+}
+
+function PresetPicker({
+  active,
+  onPick,
+}: {
+  active: string | undefined
+  onPick: (preset: Preset) => void
+}) {
+  return (
+    <div>
+      <p className="font-medium text-fg-primary text-sm">Start from a preset</p>
+      <div className="mt-2 flex flex-col gap-1.5">
+        {presets.map((preset) => (
+          <button
+            key={preset.id}
+            type="button"
+            onClick={() => onPick(preset)}
+            className={`rounded-[--radius-md] border px-3 py-2 text-left transition-colors ${
+              active === preset.id
+                ? 'border-brand bg-brand-subtle'
+                : 'border-border bg-bg-raised hover:border-border-strong'
+            }`}
+          >
+            <span className="block font-medium text-fg-primary text-sm">{preset.label}</span>
+            <span className="block text-fg-muted text-xs">{preset.hint}</span>
+          </button>
+        ))}
+      </div>
+      <p className="mt-3 font-medium text-fg-primary text-sm">Or choose your own</p>
     </div>
   )
 }

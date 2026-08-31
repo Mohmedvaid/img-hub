@@ -50,6 +50,17 @@ export type ToolDefinition = {
   readonly conversion?: { readonly from: ImageFormat; readonly to: ImageFormat }
   /** Relative weight in the sitemap, 0-1. */
   readonly priority: number
+  /**
+   * Whether this page belongs in the index.
+   *
+   * Defaults to true for live tools. Set false for a page worth having — someone
+   * lands on it from a link, and it works — but not worth asking Google to rank,
+   * because its intent is already served better by another page here.
+   *
+   * Decisions belong in the pre-launch SEO audit (P3-01) with real Search Console
+   * data, not guessed at up front.
+   */
+  readonly indexable: boolean
 }
 
 /** The optional checkboxes a page shows: every feature except its primary one. */
@@ -64,6 +75,7 @@ function conversionTool(from: ImageFormat, to: ImageFormat): ToolDefinition {
   return {
     slug: `${source.extensions[0]}-to-${target.extensions[0]}`,
     status: 'live',
+    indexable: true,
     primary: 'convert',
     conversion: { from, to },
     title: `Convert ${source.label} to ${target.label}`,
@@ -89,6 +101,7 @@ const STANDALONE_TOOLS: readonly ToolDefinition[] = [
   {
     slug: 'compress-image',
     status: 'live',
+    indexable: true,
     primary: 'compress',
     title: 'Compress images',
     metaTitle: 'Compress Images Online — Free, Private, No Upload',
@@ -103,6 +116,7 @@ const STANDALONE_TOOLS: readonly ToolDefinition[] = [
   {
     slug: 'resize-image',
     status: 'live',
+    indexable: true,
     primary: 'resize',
     title: 'Resize images',
     metaTitle: 'Resize Images Online — Free, Private, No Upload',
@@ -120,6 +134,7 @@ const STANDALONE_TOOLS: readonly ToolDefinition[] = [
   {
     slug: 'crop-image',
     status: 'live',
+    indexable: true,
     primary: 'crop',
     title: 'Crop images',
     metaTitle: 'Crop Images Online — Free, Private, No Upload',
@@ -138,6 +153,7 @@ const STANDALONE_TOOLS: readonly ToolDefinition[] = [
   {
     slug: 'rotate-image',
     status: 'live',
+    indexable: true,
     primary: 'rotate',
     title: 'Rotate & flip images',
     metaTitle: 'Rotate and Flip Images Online — Free, Private, No Upload',
@@ -163,9 +179,20 @@ export function allTools(): readonly ToolDefinition[] {
   return [...STANDALONE_TOOLS, ...conversions]
 }
 
-/** Tools with a route that actually exists. This is what the sitemap advertises. */
+/** Tools with a route that actually exists. Every live tool is reachable. */
 export function liveTools(): readonly ToolDefinition[] {
   return allTools().filter((tool) => tool.status === 'live')
+}
+
+/**
+ * Tools the sitemap advertises: live, and worth indexing.
+ *
+ * A sitemap is a request to index. Listing a page marked non-indexable would ask
+ * Google to crawl something the page itself tells it to ignore, which wastes crawl
+ * budget and reads as a configuration mistake.
+ */
+export function indexableTools(): readonly ToolDefinition[] {
+  return liveTools().filter((tool) => tool.indexable)
 }
 
 export function findTool(slug: string): ToolDefinition | undefined {

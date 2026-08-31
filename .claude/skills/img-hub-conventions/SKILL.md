@@ -98,6 +98,21 @@ Adding an operation:
 The switches in `registry.ts` are pure delegation — one line per operation, no logic.
 If one grows a condition, that condition belongs in the operation module.
 
+### Before adding an image codec
+
+Two jSquash packages have been added and reverted for the same reason. Check both of
+these before writing any code against a new one:
+
+1. **Does it ship a multi-threaded build?** Look for `-mt`, `parallel`, `rayon` or
+   `.worker.` in its file list. Those builds need WebAssembly threads, which need
+   SharedArrayBuffer, which needs the COOP/COEP headers ADR-0002 permanently forbids.
+   They can never run here, but the bundler still processes them.
+2. **Measure a cold `pnpm build`** against the ~13s baseline before writing UI.
+   `@jsquash/oxipng` took it to 175s; `@jsquash/avif` to 112s. Both were reverted.
+
+Neither cost is visible from the package README, and neither shows up until a full
+production build. See P1-12 and P2-01 in the backlog for what a reopen needs.
+
 ### Order is fixed and load-bearing
 
 `OPERATIONS` in `registry.ts` defines the apply order: **rotate → crop → resize →

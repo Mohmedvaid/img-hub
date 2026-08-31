@@ -18,6 +18,21 @@ file is a view, not a source. If the two disagree, the backlog is right.
 
 Nothing. Everything through Phase 2 is merged to `main` and CI is green.
 
+## Indexing
+
+**The site is noindex on every page, and that is deliberate.** Two independent
+layers, both opt-in:
+
+- `robots.txt` returns `Disallow: /`
+- every page emits `noindex, nofollow`
+
+Both flip only when `NEXT_PUBLIC_ALLOW_INDEXING="true"` is set on the deployment.
+Deploy and test on the real domain freely; nothing gets crawled until that variable
+is set. `P3-01` and `P3-02` are the gates to clear before flipping it.
+
+Individual pages can also opt out via `indexable` in `config/tools.ts`. The two gates
+compose: a page cannot opt into indexing on a deployment where indexing is off.
+
 ## Picking this up next session
 
 The app works end to end. Start by running it:
@@ -31,13 +46,18 @@ pnpm smoke                      # 10 browser checks; needs the server running
 Then read `docs/BACKLOG.md` for what is left. The next three, in value order,
 are all self-contained and need nothing from Mohmed:
 
-1. **AVIF output** — the engine and format table already support it; it is gated
-   behind `site.features.avifOutput` until a slow-encode warning exists, because a
-   12MP AVIF takes 2-5s even on a fast preset
-2. **Named presets** — social square, web hero, email attachment. Cheap, and gives
-   the tool pages something to link to
-3. **`P1-11` colour profile** — the option exists in `MetadataTransform` but the
+1. **`P3-01` SEO audit** and **`P3-02` performance** — the two gates before indexing
+   can be switched on. Both are checklists with measurable targets
+2. **`P1-11` colour profile** — the option exists in `MetadataTransform` but the
    encoders ignore it, so wide-gamut images shift colour
+3. **`P2-01` AVIF** and **`P1-12` PNG optimisation** — both attempted and reverted
+   for the same reason: their codec packages ship multi-threaded builds that can
+   never run here (ADR-0002) but still cost 7-13x the build time. Each ticket records
+   the measurement and what a reopen needs
+
+Two dependencies have now been reverted for the same cause. Before adding any jSquash
+codec, check whether it ships a `-mt`, `parallel` or `rayon` build, and measure a cold
+`pnpm build` against the 13s baseline before writing UI for it.
 
 **AdSense is the only item that needs Mohmed**: it wants a publisher ID in
 `NEXT_PUBLIC_ADSENSE_CLIENT`. Everything else can be taken to done independently.
@@ -80,7 +100,7 @@ changes when the answers arrive.
 | Check | State |
 |---|---|
 | CI | Passing |
-| Tests | 210 passing, plus a 10-check browser smoke suite |
+| Tests | 229 passing, plus a 10-check browser smoke suite |
 | Typecheck | Clean, strict mode |
 | Lint | Clean |
 | Production build | Passing, all routes static |

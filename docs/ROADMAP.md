@@ -63,8 +63,8 @@ Every operation the pipeline models.
 - ✅ Rotate and flip
 - ✅ Metadata stripping
 - ⬜ Colour profile preservation (P1-11) — the option exists but is not yet honoured
-- ⬜ Named presets (web hero, social square, email attachment)
-- ⬜ AVIF output behind the slow-encode warning; `site.features.avifOutput` flips on
+- ✅ Named presets (web page, social square, email attachment, thumbnail, strip location)
+- ⬜ AVIF output (P2-01) — attempted and reverted; the codec package takes the build from 13s to 95s+ for a format that is 5-20x slower to encode than WebP
 - ⬜ Remembering the last-used pipeline between visits
 
 ## Phase 3 — SEO surface `v0.3.0` — mostly shipped
