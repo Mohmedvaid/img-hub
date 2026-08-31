@@ -89,7 +89,7 @@ function conversionTool(from: ImageFormat, to: ImageFormat): ToolDefinition {
 const STANDALONE_TOOLS: readonly ToolDefinition[] = [
   {
     slug: 'compress-image',
-    status: 'planned',
+    status: 'live',
     primary: 'compress',
     title: 'Compress images',
     metaTitle: 'Compress Images Online — Free, Private, No Upload',

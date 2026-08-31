@@ -29,7 +29,7 @@ No UI. Everything the rest of the work rests on.
 - Docs, ADRs and the three repo skills
 - Security headers, robots, sitemap, SEO metadata builder
 
-## Phase 1 — MVP `v0.1.0`
+## Phase 1 — MVP `v0.1.0` ✅
 
 The product becomes usable. One page, the full pipeline, no tool routes yet.
 
@@ -48,6 +48,10 @@ The product becomes usable. One page, the full pipeline, no tool routes yet.
 **Done when** a 20-file mixed-format batch completes with a resize and a format
 change, one deliberately corrupt file fails without affecting the other 19, and the
 main thread never blocks for more than a frame.
+
+**Verified** by `pnpm smoke`, which drives a real browser: EXIF auto-orientation,
+resize, rotate, cover-crop, batch resilience and ZIP output are all asserted against
+actual output bytes and dimensions.
 
 ## Phase 2 — Full toolkit `v0.2.0`
 

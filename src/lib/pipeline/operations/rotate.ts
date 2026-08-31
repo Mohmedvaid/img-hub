@@ -15,6 +15,7 @@
  * made. Adding it later means a new field, not a new operation.
  */
 
+import { createCanvas } from '../codecs/canvas'
 import { ok, type Result } from '../errors'
 import { invalidPayload, type OperationModule } from '../operation'
 
@@ -52,5 +53,37 @@ export const rotateOperation: OperationModule<RotateTransform> = {
       flipHorizontal: raw.flipHorizontal === true,
       flipVertical: raw.flipVertical === true,
     })
+  },
+
+  apply(image, transform) {
+    const { degrees, flipHorizontal, flipVertical } = transform
+
+    if (degrees === 0 && !flipHorizontal && !flipVertical) {
+      return ok(image)
+    }
+
+    // A quarter turn swaps the axes; a half turn does not.
+    const swapsAxes = degrees === 90 || degrees === 270
+    const width = swapsAxes ? image.height : image.width
+    const height = swapsAxes ? image.width : image.height
+
+    const surface = createCanvas(width, height)
+    if (!surface.ok) return surface
+
+    const source = createCanvas(image.width, image.height)
+    if (!source.ok) return source
+    source.value.context.putImageData(image, 0, 0)
+
+    const { context } = surface.value
+
+    // Rotate about the centre of the destination, then draw the source centred on
+    // that same point. Doing it in this order means the same maths works for all
+    // four angles instead of a special case per angle.
+    context.translate(width / 2, height / 2)
+    context.rotate((degrees * Math.PI) / 180)
+    context.scale(flipHorizontal ? -1 : 1, flipVertical ? -1 : 1)
+    context.drawImage(source.value.canvas, -image.width / 2, -image.height / 2)
+
+    return ok(context.getImageData(0, 0, width, height))
   },
 }

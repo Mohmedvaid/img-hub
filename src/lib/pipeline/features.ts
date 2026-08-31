@@ -36,6 +36,14 @@ export type FeatureInfo = {
    */
   readonly hasFields: boolean
   readonly target: FeatureTarget
+  /**
+   * Whether the UI for this feature exists yet.
+   *
+   * The engine supports every feature listed here; this gates only what is offered
+   * on screen. Crop needs an interactive selection canvas, which is v0.2 work — see
+   * docs/ROADMAP.md. Flip to true in the same change that ships its controls.
+   */
+  readonly available: boolean
 }
 
 const FEATURES: Record<FeatureId, FeatureInfo> = {
@@ -45,6 +53,7 @@ const FEATURES: Record<FeatureId, FeatureInfo> = {
     hint: 'Cut the image down to a selected area.',
     hasFields: true,
     target: { kind: 'transform', transform: 'crop' },
+    available: false,
   },
   rotate: {
     id: 'rotate',
@@ -52,6 +61,7 @@ const FEATURES: Record<FeatureId, FeatureInfo> = {
     hint: 'Turn the image in 90° steps, or mirror it.',
     hasFields: true,
     target: { kind: 'transform', transform: 'rotate' },
+    available: true,
   },
   resize: {
     id: 'resize',
@@ -59,6 +69,7 @@ const FEATURES: Record<FeatureId, FeatureInfo> = {
     hint: 'Change the pixel dimensions.',
     hasFields: true,
     target: { kind: 'transform', transform: 'resize' },
+    available: true,
   },
   convert: {
     id: 'convert',
@@ -66,6 +77,7 @@ const FEATURES: Record<FeatureId, FeatureInfo> = {
     hint: 'Save as a different file type.',
     hasFields: true,
     target: { kind: 'output', field: 'format' },
+    available: true,
   },
   compress: {
     id: 'compress',
@@ -75,6 +87,7 @@ const FEATURES: Record<FeatureId, FeatureInfo> = {
     // lives on the compressor page, where compress is the primary feature.
     hasFields: false,
     target: { kind: 'output', field: 'quality' },
+    available: true,
   },
   metadata: {
     id: 'metadata',
@@ -82,6 +95,7 @@ const FEATURES: Record<FeatureId, FeatureInfo> = {
     hint: 'Remove EXIF, GPS and camera information.',
     hasFields: false,
     target: { kind: 'transform', transform: 'metadata' },
+    available: true,
   },
 }
 
@@ -122,6 +136,11 @@ export function isFeatureId(value: string): value is FeatureId {
  */
 export function optionalFeatures(primary: FeatureId): readonly FeatureInfo[] {
   return allFeatures().filter((feature) => feature.id !== primary)
+}
+
+/** Optional features that actually have controls to show today. */
+export function availableOptionalFeatures(primary: FeatureId): readonly FeatureInfo[] {
+  return optionalFeatures(primary).filter((feature) => feature.available)
 }
 
 /**

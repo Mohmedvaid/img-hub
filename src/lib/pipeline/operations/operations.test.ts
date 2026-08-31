@@ -18,6 +18,7 @@ import { resizeOperation } from './resize'
 import { rotateOperation } from './rotate'
 
 const limits: PipelineLimits = {
+  maxFileBytes: 50 * 1024 * 1024,
   maxWidth: 20_000,
   maxHeight: 20_000,
   maxPixels: 100_000_000,

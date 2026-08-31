@@ -69,6 +69,19 @@ export function defaultsFor(kind: TransformKind): Transform {
   }
 }
 
+export function applyTransform(image: ImageData, transform: Transform): Result<ImageData> {
+  switch (transform.kind) {
+    case 'crop':
+      return cropOperation.apply(image, transform)
+    case 'rotate':
+      return rotateOperation.apply(image, transform)
+    case 'resize':
+      return resizeOperation.apply(image, transform)
+    case 'metadata':
+      return metadataOperation.apply(image, transform)
+  }
+}
+
 function validateTransform(transform: Transform, limits: PipelineLimits) {
   switch (transform.kind) {
     case 'crop':

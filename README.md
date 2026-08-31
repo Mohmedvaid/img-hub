@@ -23,20 +23,48 @@ decode → rotate → crop → resize → strip metadata → encode
 Pick what you want, run it once. And because it all happens client-side, files never
 leave the device.
 
-## Getting started
+## Running it locally
+
+Needs Node 20.9+ and pnpm (`npm i -g pnpm` if you do not have it).
 
 ```bash
+git clone https://github.com/Mohmedvaid/img-hub.git
+cd img-hub
 pnpm install
-pnpm dev
+pnpm dev            # http://localhost:3000
 ```
 
-Copy `.env.example` to `.env.local` to override defaults. Everything has a safe
-fallback, so a fresh clone runs with no env file.
+No `.env` file is needed. Every setting has a safe fallback, so a fresh clone runs
+as-is. Copy `.env.example` to `.env.local` only when you want to override something.
+
+Two pages exist today:
+
+| Route | What it shows |
+|---|---|
+| `/` | The full builder. No primary feature; every option is a checkbox |
+| `/compress-image` | A tool page. Compress is promoted to primary and always on |
+
+Drop in some JPEGs or PNGs, tick what you want, and hit Run. Nothing is uploaded, so
+the network tab stays empty.
+
+### Commands
 
 ```bash
+pnpm dev        # development server
 pnpm verify     # lint + typecheck + test + build; run before every push
-pnpm test       # tests only
+pnpm test       # unit tests only
+pnpm smoke      # end-to-end browser test; needs the app running first
 pnpm lint:fix   # format and autofix
+```
+
+`pnpm smoke` drives a real Chromium against a running server and asserts on actual
+output bytes: EXIF auto-orientation, resize, rotate, cover-crop, batch resilience and
+ZIP contents. It covers the WASM codec and Web Worker paths that unit tests cannot
+reach. Run it against either `pnpm dev` or a production build:
+
+```bash
+pnpm dev &            # or: pnpm build && pnpm start &
+pnpm smoke
 ```
 
 ## Stack

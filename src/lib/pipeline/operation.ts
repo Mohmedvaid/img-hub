@@ -16,8 +16,9 @@ import type { ImageFormat } from './formats'
 /** Every transform is a tagged union member; `kind` is the tag. */
 export type TransformLike = { readonly kind: string }
 
-/** Runtime policy operations validate against. Values come from config/limits.ts. */
+/** Runtime policy the engine validates against. Values come from config/limits.ts. */
 export type PipelineLimits = {
+  readonly maxFileBytes: number
   readonly maxWidth: number
   readonly maxHeight: number
   readonly maxPixels: number
@@ -44,6 +45,18 @@ export type OperationModule<T extends TransformLike> = {
    * Every field is checked at runtime. Nothing is cast.
    */
   parse(raw: Record<string, unknown>): Result<T>
+
+  /**
+   * Does the pixel work.
+   *
+   * Receives the image as it stands after every earlier operation and returns the
+   * next one. Returning the input unchanged is legal and expected when the transform
+   * is a no-op, such as a 0° rotation.
+   *
+   * Operations that only affect encoding rather than pixels — metadata — return the
+   * input untouched and carry their effect on the OutputSpec instead.
+   */
+  apply(image: ImageData, transform: T): Result<ImageData>
 }
 
 /** Shared failure for anything that arrives malformed from a URL. */

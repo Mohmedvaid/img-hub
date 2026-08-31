@@ -47,6 +47,7 @@ export const limits = {
 /** The subset of policy the pipeline engine validates against. */
 export function pipelineLimits(): PipelineLimits {
   return {
+    maxFileBytes: limits.maxFileBytes,
     maxWidth: limits.maxWidth,
     maxHeight: limits.maxHeight,
     maxPixels: limits.maxPixels,

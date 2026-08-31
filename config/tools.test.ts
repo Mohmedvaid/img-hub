@@ -28,9 +28,15 @@ describe('tool registry', () => {
     }
   })
 
-  it('advertises nothing in the sitemap until a route exists', () => {
-    // Phase 0 ships no tool routes. This test flips as pages land.
-    expect(liveTools()).toHaveLength(0)
+  it('advertises only tools whose route exists', () => {
+    // Every live tool must be reachable, or the sitemap feeds search engines a 404.
+    for (const tool of liveTools()) {
+      expect(findTool(tool.slug)?.status).toBe('live')
+    }
+  })
+
+  it('has the compressor live, since its page ships in v0.1', () => {
+    expect(liveTools().map((tool) => tool.slug)).toContain('compress-image')
   })
 
   it('looks a tool up by slug', () => {
