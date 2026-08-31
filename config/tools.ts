@@ -63,8 +63,7 @@ function conversionTool(from: ImageFormat, to: ImageFormat): ToolDefinition {
 
   return {
     slug: `${source.extensions[0]}-to-${target.extensions[0]}`,
-    // No conversion route exists yet; phase 3 ships them. See docs/ROADMAP.md.
-    status: 'planned',
+    status: 'live',
     primary: 'convert',
     conversion: { from, to },
     title: `Convert ${source.label} to ${target.label}`,
@@ -103,7 +102,7 @@ const STANDALONE_TOOLS: readonly ToolDefinition[] = [
   },
   {
     slug: 'resize-image',
-    status: 'planned',
+    status: 'live',
     primary: 'resize',
     title: 'Resize images',
     metaTitle: 'Resize Images Online — Free, Private, No Upload',
@@ -120,6 +119,8 @@ const STANDALONE_TOOLS: readonly ToolDefinition[] = [
   },
   {
     slug: 'crop-image',
+    // Stays dark until the interactive selection UI ships (v0.2). The engine works,
+    // but a page that cannot do what its title promises is worse than no page.
     status: 'planned',
     primary: 'crop',
     title: 'Crop images',
@@ -138,7 +139,7 @@ const STANDALONE_TOOLS: readonly ToolDefinition[] = [
   },
   {
     slug: 'rotate-image',
-    status: 'planned',
+    status: 'live',
     primary: 'rotate',
     title: 'Rotate & flip images',
     metaTitle: 'Rotate and Flip Images Online — Free, Private, No Upload',
