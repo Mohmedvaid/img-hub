@@ -5,6 +5,7 @@
  * up with rather than to the original orientation.
  */
 
+import { createCanvas, enableSmoothScaling } from '../codecs/canvas'
 import { ok, pipelineError, type Result } from '../errors'
 import { invalidPayload, type OperationModule, type PipelineLimits } from '../operation'
 
@@ -89,6 +90,123 @@ export const resizeOperation: OperationModule<ResizeTransform> = {
       ...(height === undefined ? {} : { height }),
     })
   },
+
+  apply(image, transform) {
+    const plan = resizePlan(image.width, image.height, transform)
+
+    if (plan.width === image.width && plan.height === image.height) {
+      return ok(image)
+    }
+
+    const source = createCanvas(image.width, image.height)
+    if (!source.ok) return source
+    source.value.context.putImageData(image, 0, 0)
+
+    const target = createCanvas(plan.width, plan.height)
+    if (!target.ok) return target
+    enableSmoothScaling(target.value.context)
+
+    target.value.context.drawImage(
+      source.value.canvas,
+      plan.sourceX,
+      plan.sourceY,
+      plan.sourceWidth,
+      plan.sourceHeight,
+      0,
+      0,
+      plan.width,
+      plan.height,
+    )
+
+    return ok(target.value.context.getImageData(0, 0, plan.width, plan.height))
+  },
+}
+
+/**
+ * Works out the final pixel dimensions and which part of the source fills them.
+ *
+ * Exported for tests: getting `cover` right is fiddly and worth asserting directly
+ * rather than only through rendered output.
+ */
+export function resizePlan(
+  sourceWidth: number,
+  sourceHeight: number,
+  transform: ResizeTransform,
+): {
+  width: number
+  height: number
+  sourceX: number
+  sourceY: number
+  sourceWidth: number
+  sourceHeight: number
+} {
+  const { mode, allowUpscale } = transform
+  const ratio = sourceWidth / sourceHeight
+
+  let targetWidth = transform.width ?? Math.round((transform.height ?? sourceHeight) * ratio)
+  let targetHeight = transform.height ?? Math.round((transform.width ?? sourceWidth) / ratio)
+
+  if (mode === 'contain') {
+    // Fit inside the box: the smaller scale wins so nothing overflows.
+    const scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight)
+    const bounded = allowUpscale ? scale : Math.min(scale, 1)
+    targetWidth = Math.max(1, Math.round(sourceWidth * bounded))
+    targetHeight = Math.max(1, Math.round(sourceHeight * bounded))
+
+    return {
+      width: targetWidth,
+      height: targetHeight,
+      sourceX: 0,
+      sourceY: 0,
+      sourceWidth,
+      sourceHeight,
+    }
+  }
+
+  if (mode === 'exact') {
+    if (!allowUpscale) {
+      targetWidth = Math.min(targetWidth, sourceWidth)
+      targetHeight = Math.min(targetHeight, sourceHeight)
+    }
+    return {
+      width: Math.max(1, targetWidth),
+      height: Math.max(1, targetHeight),
+      sourceX: 0,
+      sourceY: 0,
+      sourceWidth,
+      sourceHeight,
+    }
+  }
+
+  // cover: fill the box completely and centre-crop whatever overflows.
+  if (!allowUpscale) {
+    const scale = Math.min(1, Math.min(sourceWidth / targetWidth, sourceHeight / targetHeight))
+    if (scale < 1) {
+      targetWidth = Math.max(1, Math.round(targetWidth * scale))
+      targetHeight = Math.max(1, Math.round(targetHeight * scale))
+    }
+  }
+
+  const targetRatio = targetWidth / targetHeight
+  let cropWidth = sourceWidth
+  let cropHeight = sourceHeight
+
+  if (ratio > targetRatio) {
+    // Source is wider than the box: trim the sides.
+    cropWidth = Math.round(sourceHeight * targetRatio)
+  } else {
+    // Source is taller: trim top and bottom.
+    cropHeight = Math.round(sourceWidth / targetRatio)
+  }
+
+  return {
+    width: targetWidth,
+    height: targetHeight,
+    sourceX: Math.round((sourceWidth - cropWidth) / 2),
+    sourceY: Math.round((sourceHeight - cropHeight) / 2),
+    sourceWidth: cropWidth,
+    sourceHeight: cropHeight,
+  }
 }
 
 /** An absent dimension is legal; it gets derived from the other one and the ratio. */

@@ -17,9 +17,15 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "smoke": "node scripts/fixtures.mjs .fixtures && node scripts/smoke.mjs .fixtures"
   },
   "dependencies": {
+    "@jsquash/jpeg": "1.6.0",
+    "@jsquash/png": "3.1.1",
+    "@jsquash/resize": "2.1.1",
+    "@jsquash/webp": "1.5.0",
+    "fflate": "0.8.2",
     "next": "16.3.3",
     "react": "19.2.0",
     "react-dom": "19.2.0"
@@ -30,6 +36,7 @@
     "@types/node": "22.18.1",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.1",
+    "playwright": "1.56.1",
     "tailwindcss": "4.1.18",
     "typescript": "5.9.3",
     "vitest": "3.2.4"

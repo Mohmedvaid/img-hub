@@ -20,7 +20,8 @@
  * and so a resize never throws away resolution the crop would then have to magnify.
  */
 
-import { ok, pipelineError, type Result } from '../errors'
+import { createCanvas } from '../codecs/canvas'
+import { fail, ok, pipelineError, type Result } from '../errors'
 import { invalidPayload, type OperationModule, type PipelineLimits } from '../operation'
 
 export type CropTransform = {
@@ -78,5 +79,35 @@ export const cropOperation: OperationModule<CropTransform> = {
 
     const [x, y, width, height] = values as [number, number, number, number]
     return ok({ kind: 'crop', x, y, width, height })
+  },
+
+  apply(image, transform) {
+    const { x, y, width, height } = transform
+
+    // Clamp to the image rather than failing. A crop box can legitimately extend
+    // past the edge — a user drags to the corner, or a preset ratio overshoots by a
+    // pixel — and silently trimming is what they expect. Only a box entirely outside
+    // the image is a real error.
+    const left = Math.min(x, image.width)
+    const top = Math.min(y, image.height)
+    const right = Math.min(x + width, image.width)
+    const bottom = Math.min(y + height, image.height)
+
+    const clampedWidth = right - left
+    const clampedHeight = bottom - top
+
+    if (clampedWidth < 1 || clampedHeight < 1) {
+      return fail('TRANSFORM_FAILED', {
+        message: 'The crop area falls outside the image.',
+        detail: `crop ${x},${y} ${width}x${height} against ${image.width}x${image.height}`,
+        stage: 'transform',
+      })
+    }
+
+    const source = createCanvas(image.width, image.height)
+    if (!source.ok) return source
+    source.value.context.putImageData(image, 0, 0)
+
+    return ok(source.value.context.getImageData(left, top, clampedWidth, clampedHeight))
   },
 }

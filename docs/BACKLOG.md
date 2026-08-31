@@ -40,10 +40,10 @@ the author could check.
 
 ---
 
-## Phase 1 — MVP (`v0.1.0`) — todo
+## Phase 1 — MVP (`v0.1.0`) — shipped except P1-10
 
 ### P1-01 · Worker harness and RPC boundary
-**Status:** todo · **Blocks:** everything else in Phase 1
+**Status:** done · **Blocks:** everything else in Phase 1
 
 Set up the Web Worker, the Comlink RPC surface and worker lifecycle handling.
 
@@ -52,7 +52,7 @@ that crashes is recreated and the in-flight file is marked `WORKER_CRASHED` with
 killing the rest of the batch; a cancel request stops work and yields `CANCELLED`.
 
 ### P1-02 · Decode and encode via jSquash
-**Status:** todo · **Blocked by:** P1-01
+**Status:** done · **Blocked by:** P1-01
 
 Wire the jSquash codecs for JPEG, PNG and WebP. Load each codec on demand so a
 visitor converting to WebP never downloads the AVIF encoder.
@@ -69,7 +69,7 @@ tests assert output byte size stays within a tolerance band; **a fixture image f
 each of EXIF Orientation values 1-8 decodes to identical upright pixels.**
 
 ### P1-03 · Canvas resize transform
-**Status:** todo · **Blocked by:** P1-01
+**Status:** done · **Blocked by:** P1-01
 
 Implement `contain`, `cover` and `exact` on Canvas, honouring `allowUpscale`.
 
@@ -78,7 +78,7 @@ landscape sources; `allowUpscale: false` leaves a smaller image untouched; downs
 by more than 2x does not alias visibly.
 
 ### P1-10 · Crop rectangle remap on rotation change
-**Status:** todo · **Blocked by:** P1-06
+**Status:** todo · **Blocked by:** crop UI (v0.2)
 
 Crop coordinates are in post-rotation space (ADR-0006). When the user changes rotation
 after drawing a crop box, the stored rectangle must be remapped into the new
@@ -89,7 +89,7 @@ selected; four successive 90° turns return the rectangle to exactly its origina
 coordinates; a flip mirrors the rectangle across the same axis.
 
 ### P1-04 · Pipeline runner
-**Status:** todo · **Blocked by:** P1-02, P1-03
+**Status:** done · **Blocked by:** P1-02, P1-03
 
 Apply transforms in order, then encode. Returns `Result`, never throws.
 
@@ -97,7 +97,7 @@ Done when: transform order demonstrably changes output; a failure at any stage
 returns the right code and stage; a 40-file batch with one corrupt file completes 39.
 
 ### P1-05 · File intake
-**Status:** todo
+**Status:** done
 
 Drop zone plus file picker. Sniff format from content, falling back to extension.
 Enforce `limits.maxFileBytes` and `limits.maxFilesPerBatch` before any work starts.
@@ -107,7 +107,7 @@ its size and the cap in the message; a `.png` that is really a JPEG is handled b
 content, not by name.
 
 ### P1-06 · Pipeline builder UI
-**Status:** todo · **Blocked by:** P1-04
+**Status:** done · **Blocked by:** P1-04
 
 The controls: output format, quality, resize settings. React context plus
 `useReducer`; no state library.
@@ -117,7 +117,7 @@ message from `validatePipeline` rather than a generic one; the pipeline survives
 adding more files.
 
 ### P1-07 · Results list with per-file state
-**Status:** todo · **Blocked by:** P1-04
+**Status:** done · **Blocked by:** P1-04
 
 Per-file progress, before/after size, percentage saved, and per-file errors that
 show `message` and never `detail`.
@@ -126,13 +126,13 @@ Done when: a mixed batch shows successes and failures side by side; a retryable
 error offers a retry and a non-retryable one does not.
 
 ### P1-08 · Download, individually and as ZIP
-**Status:** todo · **Blocked by:** P1-07
+**Status:** done · **Blocked by:** P1-07
 
 Done when: a single file downloads with a correct name and extension; a batch
 downloads as a ZIP; filename collisions are de-duplicated rather than overwriting.
 
 ### P1-09 · Error boundaries and recovery
-**Status:** todo · **Blocked by:** P1-06, P1-07
+**Status:** done · **Blocked by:** P1-06, P1-07
 
 One boundary per surface — builder and results — not per component.
 
@@ -140,6 +140,25 @@ Done when: a thrown render error in the results list leaves the builder usable;
 recovering does not lose already-processed output.
 
 ---
+
+### P1-11 · Preserve the ICC colour profile
+**Status:** todo
+
+`MetadataTransform.keepColorProfile` is honoured in the type but not yet in the
+encoders, so the profile is currently always dropped. Visible as a colour shift on
+wide-gamut images.
+
+Done when: a P3-tagged source keeps its profile with the option on, and loses it with
+the option off.
+
+### P1-12 · Optimise PNG output with oxipng
+**Status:** todo
+
+PNG output is a plain re-encode today, which shrinks bloated files but leaves real
+savings on the table. `@jsquash/oxipng` does the actual optimisation.
+
+Done when: a PNG re-encode is measurably smaller than the current output on the
+fixture set, with no pixel difference.
 
 ## Unscheduled
 

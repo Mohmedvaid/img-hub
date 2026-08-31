@@ -46,4 +46,14 @@ export const metadataOperation: OperationModule<MetadataTransform> = {
       keepColorProfile: raw.keepColorProfile === true,
     })
   },
+
+  apply(image) {
+    // Metadata never touches pixels. It takes effect at encode time, and the WASM
+    // encoders write no EXIF at all, so stripping is what happens by default.
+    //
+    // That is only correct because decoding already baked the EXIF orientation into
+    // these pixels — see codecs/decode.ts and ADR-0006. Keeping the colour profile
+    // is not yet wired up; tracked as P1-11.
+    return ok(image)
+  },
 }

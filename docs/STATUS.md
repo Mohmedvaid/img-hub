@@ -3,37 +3,38 @@
 Where the project is **right now**. Regenerated from [BACKLOG.md](BACKLOG.md) — this
 file is a view, not a source. If the two disagree, the backlog is right.
 
-**Last updated:** 2026-08-30 · **Release:** `v0.0.1` · **Phase:** 0 complete, 1 not started
+**Last updated:** 2026-08-31 · **Release:** `v0.1.0` · **Phase:** 1 complete, 2 not started
 
 ## At a glance
 
 | | Count |
 |---|---|
-| Done | 13 |
+| Done | 22 |
 | In progress | 0 |
-| To do (Phase 1) | 10 |
+| To do (carried) | 3 |
 | Blocked | 0 |
 
 ## In progress
 
-Nothing. Phase 0 is merged; Phase 1 has not been picked up.
+Nothing. Phase 1 is on a branch awaiting review.
 
 ## Next up
 
-The top of the Phase 1 backlog, in dependency order:
+Phase 2 opens the remaining operations. In order:
 
-1. `P1-01` Worker harness and Comlink RPC boundary
-2. `P1-02` Decode and encode via jSquash codecs
-3. `P1-03` Canvas resize transform
-
-`P1-01` blocks everything else in Phase 1, so it goes first and alone.
+1. Interactive crop UI, then `P1-10` (crop rectangle remap on rotation)
+2. `P1-11` colour profile preservation
+3. `P1-12` PNG optimisation with oxipng
+4. AVIF output behind the slow-encode warning
 
 ## Recently done
 
 - Repo foundation: framework, tooling, CI, docs, skills (`P0-01` … `P0-12`)
-- Pipeline model, error taxonomy and versioned schema
 - Independent operation modules and the primary/optional feature model (`P0-13`)
-- Five ADRs recording the decisions behind the stack
+- Working MVP (`P1-01` … `P1-09`): worker, codecs, runner, builder UI, batch results,
+  single and ZIP download, error boundaries
+- Browser smoke suite covering the WASM and EXIF paths unit tests cannot reach
+- Six ADRs recording the decisions behind the stack
 
 ## Open questions
 
@@ -50,8 +51,9 @@ changes when the answers arrive.
 | Check | State |
 |---|---|
 | CI | Passing |
-| Tests | 126 passing |
+| Tests | 168 passing, plus a browser smoke suite |
 | Typecheck | Clean, strict mode |
 | Lint | Clean |
 | Production build | Passing, all routes static |
-| Known bugs | None |
+| Browser smoke | 6/6 passing |
+| Known bugs | None. Colour profile and PNG optimisation are unimplemented, not broken — P1-11, P1-12 |
