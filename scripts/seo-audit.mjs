@@ -27,7 +27,8 @@ const BASE = (process.argv[2] ?? 'http://localhost:3000').replace(/\/+$/, '')
  * there. Keying them on the indexing flag alone turned CI red for a problem that only
  * matters on a site people can actually reach.
  */
-const PLACEHOLDER_HOSTS = /^(localhost|127\.0\.0\.1|\[::1\])$|(^|\.)example\.(com|org|net)$|\.example$/
+const PLACEHOLDER_HOSTS =
+  /^(localhost|127\.0\.0\.1|\[::1\])$|(^|\.)example\.(com|org|net)$|\.example$/
 const isRealDeployment = !PLACEHOLDER_HOSTS.test(new URL(BASE).hostname)
 
 const failures = []
