@@ -175,6 +175,89 @@ Reopen only with a measurement in hand. Specifically:
 Done when: a PNG re-encode is measurably smaller on the fixture set with no pixel
 difference, **and** a cold `pnpm build` stays under 30s.
 
+---
+
+## Phase 3 — pre-launch gates
+
+These block flipping `NEXT_PUBLIC_ALLOW_INDEXING` to `true`. Until then the site is
+noindex on every page and `robots.txt` disallows everything, so nothing here is
+urgent — but none of it should be skipped, because the first crawl sets a first
+impression that takes months to revise.
+
+### P3-01 · SEO audit before launch
+**Status:** todo · **Blocks:** enabling indexing
+
+A pass over every page that will be indexed, with the site running a production
+build against the real domain.
+
+Per page:
+- [ ] Exactly one `<h1>`, and it matches the search intent the page targets
+- [ ] `<title>` under ~60 characters, description ~150, neither truncated mid-word
+- [ ] Canonical URL is absolute, uses the real domain, and points at itself
+- [ ] Structured data validates in Google's Rich Results Test, and every FAQ answer
+      in it appears verbatim on the page — mismatched structured data is a manual
+      action risk
+- [ ] Internal links resolve; no orphan pages
+- [ ] Open Graph image resolves at an absolute URL and is exactly 1200×630
+
+Site-wide:
+- [ ] `robots.txt` allows crawling and points at the sitemap
+- [ ] Sitemap lists only live, indexable, 200-returning URLs
+- [ ] Decide `indexable` per tool using real search data rather than assumption. A
+      handful of pages that each deserve to rank beats fifteen that dilute the site.
+      Candidates to demote are conversion pairs whose source format people rarely
+      hold — check Search Console impressions after the first month rather than
+      guessing now
+- [ ] No page indexed that duplicates another's intent
+- [ ] 404 returns a real 404 status, not a 200 with an error page
+- [ ] Trailing-slash behaviour is consistent, so one URL per page
+
+**Done when** every box is ticked against a production build, and the result is
+recorded in this ticket so the next audit has a baseline.
+
+### P3-02 · Performance and Core Web Vitals
+**Status:** todo · **Blocks:** enabling indexing
+
+Speed is a ranking factor and, more importantly, the thing that decides whether
+someone waits for a 3 MB photo to compress or closes the tab.
+
+Targets, measured on a throttled mobile profile rather than a desktop:
+- [ ] Largest Contentful Paint under 2.5s
+- [ ] Interaction to Next Paint under 200ms
+- [ ] Cumulative Layout Shift under 0.1
+- [ ] Lighthouse performance ≥ 90 on a tool page
+
+Work likely needed to get there:
+- [ ] Measure the JavaScript actually shipped per route; the builder is a client
+      component and the codecs are dynamic imports, so confirm no codec is pulled
+      into the initial bundle
+- [ ] Codecs load on demand today. Confirm a visitor converting to WebP never
+      downloads another encoder, and consider prefetching the likely one on file
+      selection rather than on Run
+- [ ] Reserve space for the crop preview and results list so neither shifts layout
+      as it populates
+- [ ] Self-host any webfont, or stay on the system stack; a font swap is a common
+      CLS source
+- [ ] Cache headers on static assets; the codec WASM is immutable and should be
+      cached for a year
+- [ ] Check the worker starts lazily, so a visitor who only reads the page never
+      pays for it
+
+**Done when** the four vitals targets hold on a throttled mobile run of the home page
+and one tool page, with the numbers recorded here.
+
+### P3-03 · AdSense integration
+**Status:** blocked — needs a publisher ID from Mohmed
+
+Behind `site.ads.enabled`, which is driven by `NEXT_PUBLIC_ADSENSE_CLIENT`. The CSP
+in `config/security.ts` already admits the ad hosts only when that value is set.
+
+**Never set COOP or COEP to satisfy any library while ads are the revenue model.**
+See ADR-0002; the failure is silent.
+
+Done when: ads render on a tool page, the CSP is not widened beyond the hosts
+already listed, and the performance targets in P3-02 still hold with ads present.
+
 ## Unscheduled
 
 Ideas with no phase. Promote by giving one an ID, or delete it.

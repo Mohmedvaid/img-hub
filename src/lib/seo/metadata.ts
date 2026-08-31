@@ -15,9 +15,26 @@ type PageMetadataInput = {
   description: string
   /** Path with a leading slash. Becomes the canonical URL. */
   path: string
+  /**
+   * Whether this page should be indexed at all, assuming the deployment allows it.
+   *
+   * Separate from the site-wide switch on purpose: not every page earns a place in
+   * the index. A page with thin content, or one that competes with a stronger page
+   * for the same intent, is better left out — a small set of pages that all deserve
+   * to rank beats a large set that dilutes the site.
+   *
+   * This can only ever restrict. A page cannot opt into indexing on a deployment
+   * where indexing is off.
+   */
+  indexable?: boolean
 }
 
-export function buildMetadata({ title, description, path }: PageMetadataInput): Metadata {
+export function buildMetadata({
+  title,
+  description,
+  path,
+  indexable = true,
+}: PageMetadataInput): Metadata {
   const canonical = absoluteUrl(path)
 
   return {
@@ -46,9 +63,13 @@ export function buildMetadata({ title, description, path }: PageMetadataInput): 
       description,
       images: [absoluteUrl(brand.ogImage.src)],
     },
-    // Preview and local deployments must never compete with production in search.
-    robots: site.allowIndexing
-      ? { index: true, follow: true }
-      : { index: false, follow: false, nocache: true },
+    // Two independent gates. The deployment must allow indexing at all — preview and
+    // local builds never compete with production — and the page must be one we want
+    // indexed. `follow` stays on even when indexing is off, so link equity still
+    // flows through to pages that are indexed.
+    robots:
+      site.allowIndexing && indexable
+        ? { index: true, follow: true }
+        : { index: false, follow: site.allowIndexing, nocache: true },
   }
 }

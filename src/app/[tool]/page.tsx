@@ -26,6 +26,7 @@ export async function generateMetadata({ params }: ToolPageProps): Promise<Metad
     title: tool.metaTitle,
     description: tool.metaDescription,
     path: `/${tool.slug}`,
+    indexable: tool.indexable,
   })
 }
 
