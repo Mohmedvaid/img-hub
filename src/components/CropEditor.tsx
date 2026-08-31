@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { CropTransform } from '@/lib/pipeline/operations/crop'
 import type { RotateTransform } from '@/lib/pipeline/operations/rotate'
 import {
@@ -31,7 +31,8 @@ type DragState =
 
 type Corner = 'nw' | 'ne' | 'sw' | 'se'
 
-const MAX_PREVIEW = 420
+/** Tallest the preview may get. Width comes from the container, which varies. */
+const MAX_PREVIEW_HEIGHT = 320
 const MIN_SIZE = 8
 
 export function CropEditor({
@@ -46,7 +47,28 @@ export function CropEditor({
   const [url, setUrl] = useState<string>()
   const [ratio, setRatio] = useState<number>()
   const [drag, setDrag] = useState<DragState>()
-  const surfaceRef = useRef<HTMLDivElement>(null)
+  const [available, setAvailable] = useState(0)
+
+  /**
+   * A callback ref rather than useRef, because the element only mounts once the
+   * object URL exists. With a plain ref the observer effect runs while the ref is
+   * still null and never retries, which silently collapses the preview to nothing.
+   * This fires exactly when the node appears.
+   */
+  const [container, setContainer] = useState<HTMLDivElement | null>(null)
+
+  // The panel is narrower than the page on desktop and full-width on mobile, so the
+  // preview width has to be measured rather than assumed.
+  useEffect(() => {
+    if (!container) return
+
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setAvailable(entry.contentRect.width)
+    })
+    observer.observe(container)
+    setAvailable(container.clientWidth)
+    return () => observer.disconnect()
+  }, [container])
 
   // Object URLs leak until revoked, and a batch can churn through many.
   useEffect(() => {
@@ -74,7 +96,13 @@ export function CropEditor({
     }
   }, [frame, crop.width, onChange])
 
-  const scale = frame ? Math.min(MAX_PREVIEW / frame.width, MAX_PREVIEW / frame.height, 1) : 1
+  const scale = frame
+    ? Math.min(
+        (available > 0 ? available : MAX_PREVIEW_HEIGHT) / frame.width,
+        MAX_PREVIEW_HEIGHT / frame.height,
+        1,
+      )
+    : 0
   const displayWidth = frame ? Math.round(frame.width * scale) : 0
   const displayHeight = frame ? Math.round(frame.height * scale) : 0
 
@@ -152,10 +180,9 @@ export function CropEditor({
   const imageHeight = source ? Math.round(source.height * scale) : 0
 
   return (
-    <div className="flex flex-col gap-3">
+    <div ref={setContainer} className="flex w-full flex-col gap-3">
       <div
-        ref={surfaceRef}
-        className="relative mx-auto overflow-hidden rounded-[--radius-sm] bg-bg-sunken"
+        className="relative mx-auto max-w-full overflow-hidden rounded-[--radius-sm] bg-bg-sunken"
         style={{ width: displayWidth || undefined, height: displayHeight || undefined }}
       >
         {/* biome-ignore lint/performance/noImgElement: a local object URL, not a remote asset next/image could optimise */}
