@@ -16,7 +16,31 @@ file is a view, not a source. If the two disagree, the backlog is right.
 
 ## In progress
 
-Nothing. Phase 1 is on a branch awaiting review.
+Nothing. Everything through Phase 2 is merged to `main` and CI is green.
+
+## Picking this up next session
+
+The app works end to end. Start by running it:
+
+```bash
+pnpm install && pnpm dev        # http://localhost:3000
+pnpm verify                     # lint + typecheck + 210 tests + build
+pnpm smoke                      # 10 browser checks; needs the server running
+```
+
+Then read `docs/BACKLOG.md` for what is left. The next three, in value order,
+are all self-contained and need nothing from Mohmed:
+
+1. **AVIF output** — the engine and format table already support it; it is gated
+   behind `site.features.avifOutput` until a slow-encode warning exists, because a
+   12MP AVIF takes 2-5s even on a fast preset
+2. **Named presets** — social square, web hero, email attachment. Cheap, and gives
+   the tool pages something to link to
+3. **`P1-11` colour profile** — the option exists in `MetadataTransform` but the
+   encoders ignore it, so wide-gamut images shift colour
+
+**AdSense is the only item that needs Mohmed**: it wants a publisher ID in
+`NEXT_PUBLIC_ADSENSE_CLIENT`. Everything else can be taken to done independently.
 
 ## Next up
 
