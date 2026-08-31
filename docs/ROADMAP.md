@@ -24,7 +24,8 @@ No UI. Everything the rest of the work rests on.
 
 - Next.js 16 + TypeScript strict + Tailwind v4, Biome, Vitest, CI
 - Config layer: brand, theme, site, limits, security, tools
-- Pipeline model, error taxonomy, versioned schema, 74 tests
+- Pipeline model, error taxonomy, versioned schema, 122 tests
+- Independent operation modules; primary/optional feature model per page
 - Docs, ADRs and the three repo skills
 - Security headers, robots, sitemap, SEO metadata builder
 

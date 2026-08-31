@@ -66,6 +66,18 @@ describe('encodePipeline / decodePipeline', () => {
     if (decoded.ok) expect(decoded.value.transforms[0]).not.toHaveProperty('height')
   })
 
+  it('round-trips a source-format output, so an unchecked convert step survives', () => {
+    const original: Pipeline = {
+      transforms: [{ kind: 'crop', x: 0, y: 0, width: 100, height: 100 }],
+      output: { format: 'source', quality: 75 },
+    }
+
+    const decoded = decodePipeline(encodePipeline(original))
+
+    expect(decoded.ok).toBe(true)
+    if (decoded.ok) expect(decoded.value.output.format).toBe('source')
+  })
+
   it('produces a URL-safe string with no padding', () => {
     expect(encodePipeline(defaultPipeline())).toMatch(/^[A-Za-z0-9_-]+$/)
   })

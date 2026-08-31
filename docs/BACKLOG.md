@@ -36,6 +36,7 @@ the author could check.
 | P0-10 | done | Pipeline model, validation and error taxonomy |
 | P0-11 | done | Versioned pipeline schema with migration chain |
 | P0-12 | done | Docs, ADRs, repo skills, CI |
+| P0-13 | done | Split operations into independent modules; add the primary/optional feature model |
 
 ---
 
@@ -56,9 +57,16 @@ killing the rest of the batch; a cancel request stops work and yields `CANCELLED
 Wire the jSquash codecs for JPEG, PNG and WebP. Load each codec on demand so a
 visitor converting to WebP never downloads the AVIF encoder.
 
+**Decoding must auto-orient from EXIF before returning pixels** — bake the
+Orientation tag into the pixels and reset the tag, via
+`createImageBitmap(blob, { imageOrientation: 'from-image' })`. This is not optional
+and not a user setting. Stripping EXIF is on by default, so without this every phone
+photo taken in portrait comes out sideways. See ADR-0006.
+
 Done when: each of the three formats round-trips; an unsupported file yields
 `UNSUPPORTED_INPUT_FORMAT` and a truncated file yields `DECODE_FAILED`; golden-file
-tests assert output byte size stays within a tolerance band.
+tests assert output byte size stays within a tolerance band; **a fixture image for
+each of EXIF Orientation values 1-8 decodes to identical upright pixels.**
 
 ### P1-03 · Canvas resize transform
 **Status:** todo · **Blocked by:** P1-01
@@ -68,6 +76,17 @@ Implement `contain`, `cover` and `exact` on Canvas, honouring `allowUpscale`.
 Done when: each mode produces the expected dimensions for both portrait and
 landscape sources; `allowUpscale: false` leaves a smaller image untouched; downscaling
 by more than 2x does not alias visibly.
+
+### P1-10 · Crop rectangle remap on rotation change
+**Status:** todo · **Blocked by:** P1-06
+
+Crop coordinates are in post-rotation space (ADR-0006). When the user changes rotation
+after drawing a crop box, the stored rectangle must be remapped into the new
+orientation rather than reinterpreted in place.
+
+Done when: drawing a crop, then rotating 90°, keeps the same region of the image
+selected; four successive 90° turns return the rectangle to exactly its original
+coordinates; a flip mirrors the rectangle across the same axis.
 
 ### P1-04 · Pipeline runner
 **Status:** todo · **Blocked by:** P1-02, P1-03

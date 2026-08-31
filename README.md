@@ -17,7 +17,7 @@ compressing it means three uploads, three waits and three downloads.
 ImgHub models the work as one pipeline:
 
 ```
-decode → crop → rotate → resize → strip metadata → encode
+decode → rotate → crop → resize → strip metadata → encode
 ```
 
 Pick what you want, run it once. And because it all happens client-side, files never
