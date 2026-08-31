@@ -10,14 +10,14 @@ file is a view, not a source. If the two disagree, the backlog is right.
 | | Count |
 |---|---|
 | Done | 34 |
-| Awaiting review | 7 (Phase 4, on `feat/P4-editor-ux`) |
+| In progress | 0 |
 | To do (carried) | 2 reverted with reasons, 1 blocked on Mohmed |
 | Blocked | 0 |
 
 ## In progress
 
-Phase 4 (editor UX) is on `feat/P4-editor-ux` awaiting review. Everything through
-Phase 2 is merged to `main` and CI is green.
+Nothing. Everything through Phase 4 is merged to `main` and CI is green — including
+the browser smoke suite, which now runs on every pull request rather than by hand.
 
 ## Indexing
 
