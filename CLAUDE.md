@@ -22,6 +22,11 @@ pass, entirely client-side.
 
 ## The three things most likely to be got wrong
 
+0. **Never turn indexing on.** `NEXT_PUBLIC_ALLOW_INDEXING` stays unset until Mohmed
+   says so in as many words, in chat. Not when the audits pass, not when a domain
+   exists, not when it looks ready. He flips it; nobody else, and no inference from
+   context counts as permission.
+
 1. **Never commit to `main`.** Branch, PR, and wait for Mohmed's approval. His merge
    is the gate.
 2. **Never set COOP or COEP headers**, and never adopt a library needing

@@ -3,21 +3,25 @@
 Where the project is **right now**. Regenerated from [BACKLOG.md](BACKLOG.md) — this
 file is a view, not a source. If the two disagree, the backlog is right.
 
-**Last updated:** 2026-08-31 · **Release:** `v0.4.0` · **Phase:** 1, 2 and 4 complete; 3 clear of everything but AdSense
+**Last updated:** 2026-08-31 · **Release:** `v0.4.0` · **Phase:** 1, 2 and 4 complete; 5 (launch) in progress
 
 ## At a glance
 
 | | Count |
 |---|---|
-| Done | 34 |
-| In progress | 0 |
+| Done | 35 |
+| In progress | 4 (Phase 5, launch) |
 | To do (carried) | 2 reverted with reasons, 1 blocked on Mohmed |
 | Blocked | 0 |
 
 ## In progress
 
-Nothing. Everything through Phase 4 is merged to `main` and CI is green — including
-the browser smoke suite, which now runs on every pull request rather than by hand.
+**Phase 5, getting the site live.** `P5-01` (about, contact, privacy) is done.
+Remaining: static export and generated headers, the Cloudflare deploy, swapping
+Plausible for Cloudflare Web Analytics, and finally the domain.
+
+Everything through Phase 4 is merged to `main` and CI is green, including the browser
+smoke suite, which now runs on every pull request rather than by hand.
 
 ## Indexing
 
@@ -28,8 +32,12 @@ layers, both opt-in:
 - every page emits `noindex, nofollow`
 
 Both flip only when `NEXT_PUBLIC_ALLOW_INDEXING="true"` is set on the deployment.
-Deploy and test on the real domain freely; nothing gets crawled until that variable
-is set. `P3-01` and `P3-02` are the gates to clear before flipping it.
+Deploy and test freely; nothing gets crawled until that variable is set.
+
+**Only Mohmed flips it, and only by saying so explicitly in chat** — words to the
+effect of "we can go live now, let's do indexing". Passing `P3-01` and `P3-02` is
+necessary but is not permission, and neither is having a domain, or the site looking
+ready. Standing instruction, 2026-08-31.
 
 Individual pages can also opt out via `indexable` in `config/tools.ts`. The two gates
 compose: a page cannot opt into indexing on a deployment where indexing is off.
@@ -48,12 +56,11 @@ pnpm smoke                      # 19 browser checks; needs the server running
 Then read `docs/BACKLOG.md` for what is left. The toolkit itself is feature-complete
 for v1 — what remains is launch work, and most of it needs a decision rather than code:
 
-1. **Legal pages** — About, Contact and Privacy. AdSense rejects sites without them,
-   so this gates the revenue model. It also wants substantive content; 15 template
-   pages are the shape of site that gets refused, which is why the copy is derived
-   from format facts rather than filled in
-2. **Domain and deploy** — then `NEXT_PUBLIC_ALLOW_INDEXING="true"` once `P3-01` and
-   `P3-02` have been re-run against the real origin
+1. **`P5-02` and `P5-03`** — static export, generated headers, deploy. Hosting is
+   settled in [ADR-0007](adr/0007-cloudflare-static-hosting.md): Cloudflare, static,
+   free, ads permitted. Vercel is out because its Hobby plan prohibits AdSense
+2. **`P5-05` domain** — blocked on a product name. It, indexing and the AdSense
+   application all land together
 3. **`P2-01` AVIF** and **`P1-12` PNG optimisation** — both attempted and reverted
    for the same reason: their codec packages ship multi-threaded builds that can
    never run here (ADR-0002) but still cost 7-13x the build time. Each ticket records
@@ -116,7 +123,8 @@ unmeasured gain. The backlog entry records what a reopen needs.
 
 | Question | Blocks | Owner |
 |---|---|---|
-| Domain and final product name | SEO config, OG image, launch | Mohmed |
+| Domain and final product name | `P5-05`, so indexing and AdSense | Mohmed |
+| Support email address | `brand.supportEmail` is a placeholder; the SEO audit fails on it at launch | Mohmed |
 | Logo and brand assets | `public/brand/*` are placeholders | Mohmed |
 
 Neither blocks Phase 1: `config/brand.ts` and `NEXT_PUBLIC_SITE_URL` absorb both

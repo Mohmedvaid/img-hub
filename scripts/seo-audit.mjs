@@ -199,6 +199,19 @@ async function main() {
   const missing = await fetch(`${BASE}/this-page-does-not-exist`)
   check(missing.status === 404, 'site', `unknown URL returned ${missing.status}, expected 404`)
 
+  // Placeholder contact details are the easiest thing to ship by accident and among
+  // the worst: a contact page nobody can actually use reads as an abandoned site.
+  // Only a problem once the site is open to crawlers, so it gates launch rather than
+  // every commit — set brand.supportEmail before flipping indexing on.
+  if (indexingOn) {
+    const contact = await fetchPage('/contact')
+    check(
+      !/example\.com|example\.org|your-?email|TODO/i.test(contact.html),
+      '/contact',
+      'still carries a placeholder contact address',
+    )
+  }
+
   console.log(`${checks} checks across ${urls.length} pages\n`)
 
   for (const warning of warnings) console.log(`WARN  ${warning}`)

@@ -422,6 +422,86 @@ rasteriser would test the stub. They are asserted on real pixels in
 
 ---
 
+## Phase 5 — Launch (`v0.5.0`)
+
+Everything between a working toolkit and a site that is actually live. Hosting is
+settled in [ADR-0007](adr/0007-cloudflare-static-hosting.md).
+
+**Indexing stays off for all of it.** `NEXT_PUBLIC_ALLOW_INDEXING` is flipped by
+Mohmed, saying so explicitly in chat, and by nobody and nothing else.
+
+### P5-01 · About, contact and privacy pages
+
+**Status:** `done` · **Phase:** 5
+
+A site with no About, Contact or privacy policy reads as abandoned, and AdSense
+rejects one outright. Written now rather than at launch because they also happen to
+be the pages that say what this thing is.
+
+The privacy policy is generated against config rather than written as fixed prose:
+the advertising and analytics sections render only when `site.ads.enabled` and
+`site.analytics.enabled` are on. A policy claiming trackers a site does not run is as
+wrong as one omitting trackers it does, and this way turning either flag on updates
+the policy in the same change that adds the script.
+
+Done when: all three render, the footer links them from every page, they are in the
+sitemap, and `pnpm audit:seo` passes them.
+
+Still needed before launch: `brand.supportEmail` is a placeholder. The SEO audit
+fails on it once indexing is on, so it cannot be forgotten.
+
+### P5-02 · Static export and generated headers
+
+**Status:** `todo` · **Phase:** 5
+
+`output: 'export'` in `next.config.ts`, plus `export const dynamic = 'force-static'`
+on `robots.ts` and `sitemap.ts` — without those two lines the build fails on the
+metadata routes. Verified by trial on 2026-08-31.
+
+`headers()` does not run in a static export, so `config/security.ts` needs a build
+step that writes `public/_headers`. Generate it; never hand-write it. The CSP has one
+source of truth and ADR-0002's prohibition on COOP and COEP has to keep applying to
+what is actually served, not just to what `next.config.ts` says.
+
+Done when: `pnpm build` emits `out/`, `_headers` carries the same directives the dev
+server sends today, and a test asserts the generated file contains neither
+`Cross-Origin-Opener-Policy` nor `Cross-Origin-Embedder-Policy`.
+
+### P5-03 · Deploy to Cloudflare
+
+**Status:** `todo` · **Phase:** 5
+
+Workers with static assets, on the free `*.workers.dev` subdomain. No custom domain
+yet: there is no name, and one is not needed while indexing is off.
+
+Done when: the site is reachable over HTTPS, `pnpm smoke` and `pnpm audit:seo` both
+pass against that URL, and response headers match `public/_headers`.
+
+### P5-04 · Cloudflare Web Analytics
+
+**Status:** `todo` · **Phase:** 5
+
+Replaces the Plausible wiring. Free, cookieless, no consent banner, and it reports
+Core Web Vitals, which is what `P3-02` needs. `config/site.ts` already gates analytics
+behind an env var; the CSP allowlist and the beacon change.
+
+Done when: analytics loads only when configured, the CSP names Cloudflare rather than
+Plausible, and the privacy policy's analytics section appears with it.
+
+### P5-05 · Domain, then indexing
+
+**Status:** `blocked` — needs a product name from Mohmed · **Phase:** 5
+
+A free platform subdomain cannot carry ranking signal you intend to move, and AdSense
+will not approve one. Both problems land at the same moment, so the domain, the
+indexing switch and the AdSense application are one step.
+
+Done when: the domain resolves, `NEXT_PUBLIC_SITE_URL` is set to it, `pnpm audit:seo`
+passes with `NEXT_PUBLIC_ALLOW_INDEXING=true`, `brand.supportEmail` is real — and
+Mohmed has said, in chat, to turn indexing on.
+
+---
+
 ## Unscheduled
 
 Ideas with no phase. Promote by giving one an ID, or delete it.

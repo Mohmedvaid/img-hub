@@ -1,3 +1,4 @@
+import { legalPages } from '@config/legal'
 import { absoluteUrl } from '@config/site'
 import { indexableTools } from '@config/tools'
 import type { MetadataRoute } from 'next'
@@ -26,5 +27,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly' as const,
       priority: tool.priority,
     })),
+    // Low priority and rarely changing, but listed: a reviewer deciding whether this
+    // is a real operation should not have to guess the URLs.
+    ...legalPages
+      .filter((page) => page.indexable)
+      .map((page) => ({
+        url: absoluteUrl(`/${page.slug}`),
+        lastModified,
+        changeFrequency: 'yearly' as const,
+        priority: 0.3,
+      })),
   ]
 }
