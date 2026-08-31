@@ -6,7 +6,19 @@
  * means enabling a format is a config change, never a code change.
  */
 
-export type ImageFormat = 'jpeg' | 'png' | 'webp' | 'avif' | 'jxl' | 'gif' | 'qoi'
+export type ImageFormat =
+  | 'jpeg'
+  | 'png'
+  | 'webp'
+  | 'avif'
+  | 'jxl'
+  | 'gif'
+  | 'qoi'
+  /* Decode-only. Accepted as input because the browser can read them. */
+  | 'bmp'
+  | 'tiff'
+  | 'heic'
+  | 'ico'
 
 export type FormatInfo = {
   readonly id: ImageFormat
@@ -26,6 +38,15 @@ export type FormatInfo = {
    * before starting. AVIF is genuinely 5-20x slower; that is not a guess.
    */
   readonly encodeCost: 'fast' | 'moderate' | 'slow'
+  /**
+   * How widely browsers can decode this.
+   *
+   * 'limited' means some browsers cannot open it at all — HEIC and TIFF are
+   * essentially Safari-only. We still accept them, because rejecting a file the
+   * visitor's own browser could have opened is worse than trying and explaining a
+   * failure. The message names the reason rather than saying "corrupt".
+   */
+  readonly decodeSupport: 'universal' | 'limited'
 }
 
 const FORMATS: Record<ImageFormat, FormatInfo> = {
@@ -40,6 +61,7 @@ const FORMATS: Record<ImageFormat, FormatInfo> = {
     supportsAlpha: false,
     supportsAnimation: false,
     encodeCost: 'fast',
+    decodeSupport: 'universal',
   },
   png: {
     id: 'png',
@@ -52,6 +74,7 @@ const FORMATS: Record<ImageFormat, FormatInfo> = {
     supportsAlpha: true,
     supportsAnimation: false,
     encodeCost: 'moderate',
+    decodeSupport: 'universal',
   },
   webp: {
     id: 'webp',
@@ -64,6 +87,7 @@ const FORMATS: Record<ImageFormat, FormatInfo> = {
     supportsAlpha: true,
     supportsAnimation: true,
     encodeCost: 'fast',
+    decodeSupport: 'universal',
   },
   avif: {
     id: 'avif',
@@ -76,6 +100,7 @@ const FORMATS: Record<ImageFormat, FormatInfo> = {
     supportsAlpha: true,
     supportsAnimation: true,
     encodeCost: 'slow',
+    decodeSupport: 'universal',
   },
   jxl: {
     id: 'jxl',
@@ -88,6 +113,7 @@ const FORMATS: Record<ImageFormat, FormatInfo> = {
     supportsAlpha: true,
     supportsAnimation: true,
     encodeCost: 'moderate',
+    decodeSupport: 'universal',
   },
   gif: {
     id: 'gif',
@@ -101,6 +127,61 @@ const FORMATS: Record<ImageFormat, FormatInfo> = {
     supportsAlpha: true,
     supportsAnimation: true,
     encodeCost: 'fast',
+    decodeSupport: 'universal',
+  },
+  bmp: {
+    id: 'bmp',
+    label: 'BMP',
+    mimeType: 'image/bmp',
+    extensions: ['bmp'],
+    canDecode: true,
+    canEncode: false,
+    lossy: false,
+    supportsAlpha: true,
+    supportsAnimation: false,
+    encodeCost: 'fast',
+    decodeSupport: 'universal',
+  },
+  tiff: {
+    id: 'tiff',
+    label: 'TIFF',
+    mimeType: 'image/tiff',
+    extensions: ['tif', 'tiff'],
+    canDecode: true,
+    canEncode: false,
+    lossy: false,
+    supportsAlpha: true,
+    supportsAnimation: false,
+    encodeCost: 'fast',
+    // Safari decodes TIFF; Chrome and Firefox generally do not.
+    decodeSupport: 'limited',
+  },
+  heic: {
+    id: 'heic',
+    label: 'HEIC',
+    mimeType: 'image/heic',
+    extensions: ['heic', 'heif'],
+    canDecode: true,
+    canEncode: false,
+    lossy: true,
+    supportsAlpha: true,
+    supportsAnimation: false,
+    encodeCost: 'slow',
+    // What iPhones shoot by default, and only Safari opens it natively.
+    decodeSupport: 'limited',
+  },
+  ico: {
+    id: 'ico',
+    label: 'ICO',
+    mimeType: 'image/x-icon',
+    extensions: ['ico'],
+    canDecode: true,
+    canEncode: false,
+    lossy: false,
+    supportsAlpha: true,
+    supportsAnimation: false,
+    encodeCost: 'fast',
+    decodeSupport: 'universal',
   },
   qoi: {
     id: 'qoi',
@@ -113,6 +194,7 @@ const FORMATS: Record<ImageFormat, FormatInfo> = {
     supportsAlpha: true,
     supportsAnimation: false,
     encodeCost: 'fast',
+    decodeSupport: 'universal',
   },
 }
 

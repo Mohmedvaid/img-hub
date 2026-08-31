@@ -232,7 +232,7 @@ Reopen with a plan for the bundling, not just the feature:
 Run `pnpm audit:seo` against a build with indexing enabled. It is also a CI step, so
 the guarantees below hold on every commit rather than only at launch.
 
-**Last run: 319 checks across 17 pages, no blocking issues.**
+**Last run: 517 checks across 29 pages, no blocking issues.**
 
 Two real problems it caught on first run, both since fixed: `/rotate-image` had a
 65-character title that would truncate in results, and the structured-data comparison
@@ -319,6 +319,108 @@ See ADR-0002; the failure is silent.
 
 Done when: ads render on a tool page, the CSP is not widened beyond the hosts
 already listed, and the performance targets in P3-02 still hold with ads present.
+
+## Phase 4 — Editor UX (`v0.4.0`) — done
+
+Rotate and flip became buttons, the preview became permanent, and file intake started
+explaining itself. Everything here shipped on one branch.
+
+### P4-01 · Rotate and flip as buttons over a live preview
+
+**Status:** `done` · **Phase:** 4
+
+Checkboxes for rotation asked the user to work out an angle. Every tool in this
+category uses momentary buttons — rotate left, rotate right, flip — over a preview
+that updates as they click, and so does this now.
+
+Composition is the hard part: click order changes the result but the pipeline order is
+fixed (ADR-0006), so each click is composed into one of the eight orientations in
+`src/lib/ui/orientation.ts`.
+
+Done when: clicking any sequence of buttons produces the image shown in the preview,
+and the file that comes out matches it.
+
+### P4-02 · Always-visible preview with the crop selection on it
+
+**Status:** `done` · **Phase:** 4
+
+The preview shows geometry — orientation and crop — and deliberately not compression
+or format, which would mean re-encoding on every keystroke. The first file of a batch
+is previewed; the settings apply to all of them.
+
+Done when: the preview appears as soon as a file is picked, turns and mirrors with the
+buttons, and carries the crop box when crop is on.
+
+### P4-03 · Per-file downloads, and a zip only when there is more than one
+
+**Status:** `done` · **Phase:** 4
+
+Done when: one file offers a direct download and no archive; several offer both a
+download each and one zip. The run button reads `Apply to all N` for a batch.
+
+### P4-04 · Identify files by their bytes, and say why any were skipped
+
+**Status:** `done` · **Phase:** 4
+
+`file.type` is the browser's guess from the extension and is wrong in both directions.
+`src/lib/pipeline/codecs/sniff.ts` reads magic bytes; `src/lib/ui/intake.ts` turns that
+into an accept/reject decision carrying a reason for every rejection.
+
+Decode-only formats (BMP, TIFF, HEIC, ICO) are accepted as input: refusing a file the
+visitor's own browser could open is the worse failure.
+
+Done when: a PDF renamed `.png` is refused by name, an SVG is refused with its own
+explanation, a JPEG with no extension is accepted, and nothing is ever dropped
+silently.
+
+### P4-05 · Tool pages open on their own preset
+
+**Status:** `done` · **Phase:** 4
+
+`ImageToolkit` took only `primary`, so every conversion page started on the same
+builder default and `png-to-jpg` produced WebP — a page ranking for one thing and
+doing another. The tool's `preset` from `config/tools.ts` now seeds the builder.
+
+The primary feature also gained its own controls: a converter has a format picker, a
+compressor has a quality slider. Neither had one, so neither page could change the
+thing it was about.
+
+Done when: each conversion page outputs its own format, the compressor opens on its
+configured quality, and both remain adjustable.
+
+### P4-06 · Fix flip and rotate composing in the wrong space
+
+**Status:** `done` · **Phase:** 4
+
+Found by the corner-sampling checks added to the smoke suite in the same change.
+
+Clicks were composed on the right of the stored orientation — in the source's axes —
+rather than on the left, in the axes the user is looking at. Rotate-then-flip and
+flip-then-rotate produced each other's image, and flipping a quarter-turned image
+mirrored the wrong axis.
+
+The unit test that should have caught it was circular: it derived both the expected and
+the actual corner position from the same composed orientation, so it compared a value
+with itself. It now models the display grid independently of the algebra.
+
+Done when: all eight orientations are asserted by sampling the four corners of a
+downloaded PNG in Chromium, for single clicks and for both mixed orders.
+
+### P4-07 · Raise unit coverage above 80%
+
+**Status:** `done` · **Phase:** 4
+
+Coverage thresholds are enforced in `vitest.config.ts`, so this cannot silently slip.
+
+Done when: `pnpm test:coverage` passes its 80% thresholds. Currently 96.8% of
+statements, 94.7% of branches.
+
+What is deliberately not covered by unit tests: `rotate.apply`, `resize.apply` and the
+jSquash encoders all need a real `OffscreenCanvas` or a WASM module. Stubbing a
+rasteriser would test the stub. They are asserted on real pixels in
+`scripts/smoke.mjs` instead.
+
+---
 
 ## Unscheduled
 

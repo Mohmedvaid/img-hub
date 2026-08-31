@@ -160,8 +160,11 @@ const STANDALONE_TOOLS: readonly ToolDefinition[] = [
     metaDescription:
       'Rotate images in 90° steps or mirror them. Crop, resize and convert in the same pass. Nothing is uploaded.',
     preset: {
+      // Upright, not pre-turned. The page is about turning an image, so it opens on
+      // the image as it arrived and the buttons do the rest; a preset that rotated
+      // every file on arrival would be doing something nobody asked for.
       transforms: [
-        { kind: 'rotate', degrees: 90, flipHorizontal: false, flipVertical: false },
+        { kind: 'rotate', degrees: 0, flipHorizontal: false, flipVertical: false },
         { kind: 'metadata', stripExif: true },
       ],
       output: { format: 'source', quality: DEFAULT_QUALITY },

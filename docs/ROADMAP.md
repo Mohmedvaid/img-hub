@@ -78,12 +78,22 @@ Where traffic comes from. The registry already existed; this shipped its routes.
 - ✅ `FAQPage` structured data, generated from the same source as the visible copy
 - ✅ Internal linking between related tools; every page links to the full builder
 - ✅ Sitemap and canonical coverage
-- ⬜ `crop-image` stays dark until its selection UI ships — a page that cannot do what
-  its title promises is worse than no page
+- ✅ `crop-image` is live; its selection UI shipped in v0.2
 - ⬜ Core Web Vitals pass on mobile
 - ⬜ AdSense integration behind `site.ads.enabled`
 
-## Phase 4 — Polish `v1.0.0`
+## Phase 4 — Editor UX `v0.4.0` ✅
+
+- ✅ Rotate and flip as buttons over a live preview, composed through one canonical
+  orientation (`P4-01`, `P4-02`)
+- ✅ Per-file downloads; a zip only when there is more than one file (`P4-03`)
+- ✅ File intake by magic bytes, with a stated reason for every rejection (`P4-04`)
+- ✅ Tool pages open on their own preset, and the primary feature has its own
+  controls (`P4-05`)
+- ✅ Orientation composition fixed to act on the displayed image (`P4-06`)
+- ✅ Unit coverage thresholds enforced at 80% (`P4-07`)
+
+## Phase 5 — Polish `v1.0.0`
 
 - Shareable pipeline URLs (`site.features.shareablePipelines`)
 - PWA: installable, works offline

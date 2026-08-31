@@ -5,22 +5,38 @@ import { useCallback, useRef, useState } from 'react'
 import { formatInfo } from '@/lib/pipeline/formats'
 
 type DropZoneProps = {
-  onFiles: (files: File[]) => void
+  onFiles: (files: readonly File[]) => void
   disabled: boolean
   count: number
 }
 
-const ACCEPT = limits.inputFormats.map((format) => formatInfo(format).mimeType).join(',')
+/**
+ * Deliberately permissive.
+ *
+ * `accept` filters what the file picker will even offer, so a narrow list hides valid
+ * files from the user — a JPEG saved without an extension, or a HEIC the OS reports
+ * with an odd type. Since intake identifies files by their actual bytes, the picker
+ * should let things through and let that decide. Extensions are listed alongside
+ * `image/*` because some systems do not map the newer formats to it.
+ */
+const ACCEPT = [
+  'image/*',
+  ...limits.inputFormats.flatMap((format) =>
+    formatInfo(format).extensions.map((extension) => `.${extension}`),
+  ),
+].join(',')
 
 export function DropZone({ onFiles, disabled, count }: DropZoneProps) {
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // No filtering here any more. What is and is not an image is decided by reading
+  // the actual bytes in `intakeFiles`, which also explains every rejection. Filtering
+  // on the browser's guessed MIME type dropped valid files silently.
   const handleFiles = useCallback(
     (list: FileList | null) => {
-      if (!list) return
-      const files = Array.from(list).filter((file) => file.type.startsWith('image/'))
-      if (files.length > 0) onFiles(files)
+      if (!list || list.length === 0) return
+      onFiles(Array.from(list))
     },
     [onFiles],
   )
@@ -61,7 +77,7 @@ export function DropZone({ onFiles, disabled, count }: DropZoneProps) {
       </p>
 
       <p className="mt-1 text-fg-muted text-sm">
-        JPEG, PNG, WebP, AVIF and GIF · up to {limits.maxFilesPerBatch} files
+        JPEG, PNG, WebP, AVIF, GIF, BMP and more · up to {limits.maxFilesPerBatch} files
       </p>
 
       <button

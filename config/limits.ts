@@ -29,8 +29,26 @@ export const limits = {
   /** Batch size cap. Beyond this the queue UI stops being useful. */
   maxFilesPerBatch: 50,
 
-  /** Formats accepted as input. GIF is decode-only and still valid to upload. */
-  inputFormats: ['jpeg', 'png', 'webp', 'avif', 'gif'] satisfies ImageFormat[],
+  /**
+   * Formats accepted as input.
+   *
+   * Wider than the output list on purpose: decoding goes through the browser, so we
+   * can read anything it can read. TIFF and HEIC are essentially Safari-only, and are
+   * still accepted — refusing a file the visitor's own browser could open is worse
+   * than trying and explaining a failure. `decodeSupport` in formats.ts drives the
+   * warning.
+   */
+  inputFormats: [
+    'jpeg',
+    'png',
+    'webp',
+    'avif',
+    'gif',
+    'bmp',
+    'ico',
+    'tiff',
+    'heic',
+  ] satisfies ImageFormat[],
 
   /**
    * Formats offered as output. AVIF is gated behind a flag because encoding a

@@ -141,6 +141,16 @@ light it up everywhere at once.
 
 Set `hasFields: false` when ticking the checkbox is the whole interaction.
 
+A tool's `preset` in `config/tools.ts` is what makes one page differ from another, and
+it must actually reach the builder — `ImageToolkit` takes both `primary` and `preset`.
+Config that the code ignores is worse than no config: `png-to-jpg` shipped producing
+WebP because the preset was never read. If you add a field to a tool definition, follow
+it through to something that consumes it.
+
+The primary feature gets the same controls its optional checkbox would reveal, minus
+the checkbox. A converter with no format picker can only ever produce what its preset
+named.
+
 ## Anti-patterns to reject
 
 These get sent back in review:
@@ -158,6 +168,8 @@ These get sent back in review:
 | A test asserting a mock was called | Tests the test. Assert the observable outcome |
 | `handleX` that only calls `x` | Naming ceremony |
 | `as` casts on parsed input | Validate at runtime; URL and file input is hostile |
+| A test that computes its expectation from the value under test | Passes forever. See Testing below |
+| A UI action composed in the file's coordinate space | Clicks act on what is on screen. See `orientation.ts` |
 
 Before adding a file, layer or dependency, answer all three:
 1. What breaks if we do not build this? "Nothing yet" means not yet.
@@ -174,6 +186,37 @@ Before adding a file, layer or dependency, answer all three:
   failures.
 - Never assert a mock was called. Assert what the user would observe.
 - When a bug is fixed, the regression test comes with it in the same commit.
+- `pnpm test:coverage` enforces 80% thresholds. They are a floor for noticing an
+  untested module, not a target — a covered line is not an asserted one.
+
+### A test must not derive the expected value the way the code does
+
+The orientation test had a loop over every three-click sequence that looked
+exhaustive and proved nothing: it computed the expected corner position *from the
+composed orientation*, which is the value under test. It compared a value with itself
+and passed for weeks while rotate-then-flip returned flip-then-rotate's image.
+
+Before trusting a test, ask what it would take to make it fail. If the answer is not
+obvious, break the implementation on purpose and watch it go red. Two independent
+descriptions of the same thing is the shape to aim for — in that case, one model of
+what the user clicked and one of what the engine renders, with only the code under
+test linking them.
+
+### What browser-only means, and what it does not excuse
+
+`OffscreenCanvas`, `createImageBitmap` and the WASM encoders do not exist in jsdom, so
+`rotate.apply`, `resize.apply` and the encoders are not unit-testable. Stubbing a
+rasteriser would test the stub.
+
+They are covered in `scripts/smoke.mjs` against a real Chromium instead, and that
+coverage is specific: it downloads the output, decodes it, and samples the four
+corners of a four-colour fixture. Dimensions alone cannot tell a 180° turn from a
+double flip. If you touch geometry, run `pnpm smoke` — the unit suite cannot catch you.
+
+Stubbing a global the code merely *calls* is fine and expected: `decode.test.ts` stubs
+`createImageBitmap` to assert the options it is asked for and the limits applied to
+what comes back. The line is whether the stub has to reimplement the behaviour under
+test.
 
 ## Style
 

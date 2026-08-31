@@ -37,7 +37,22 @@ describe('format lookup', () => {
 
   it('guards unknown format strings', () => {
     expect(isImageFormat('webp')).toBe(true)
-    expect(isImageFormat('bmp')).toBe(false)
+    expect(isImageFormat('psd')).toBe(false)
+  })
+
+  it('knows the decode-only input formats', () => {
+    // Accepted as input because the browser can read them, but never as output.
+    for (const format of ['bmp', 'tiff', 'heic', 'ico'] as const) {
+      expect(isImageFormat(format)).toBe(true)
+      expect(formatInfo(format).canDecode).toBe(true)
+      expect(formatInfo(format).canEncode).toBe(false)
+    }
+  })
+
+  it('marks HEIC and TIFF as narrowly supported, since they are Safari-only', () => {
+    expect(formatInfo('heic').decodeSupport).toBe('limited')
+    expect(formatInfo('tiff').decodeSupport).toBe('limited')
+    expect(formatInfo('png').decodeSupport).toBe('universal')
   })
 })
 

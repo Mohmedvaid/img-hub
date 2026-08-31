@@ -109,6 +109,64 @@ stretches.
 
 ---
 
+## Rotate and flip
+
+**Status:** Shipped in v0.4 · **Tickets:** P4-01, P4-06
+
+Four momentary buttons — rotate left, rotate right, flip horizontally, flip vertically
+— over a preview that turns as they are clicked. No angle picker: "turn it left" is how
+people think about a sideways photo.
+
+**Every click acts on what is on screen.** That is the whole specification, and it is
+the part that is easy to get wrong. The pipeline applies a fixed order — rotate, then
+mirror (ADR-0006) — so a click has to be *composed* into that form rather than appended
+to a list. Rotations and mirrors form a closed group of eight orientations, so any
+sequence of clicks, however long, reduces to one of them. `src/lib/ui/orientation.ts`
+owns that algebra; the preview's CSS transform and the engine's canvas transform are
+generated from the same value, so they cannot disagree.
+
+There is no "flipped vertically" pressed state, because in canonical form there is no
+such bit: a vertical flip is a mirror plus a half turn. Lighting up one flip button
+would report a state that does not exist. The preview is the feedback, and a reset link
+appears once there is something to undo.
+
+**Acceptance**
+- Any sequence of clicks produces the image the preview showed, in the file that comes
+  out
+- Rotating a mirrored image still turns the direction the button says
+- Flipping a quarter-turned image mirrors the axis on screen, not the source's
+- Rotate-then-flip and flip-then-rotate produce different, correct images
+- Four turns in either direction return to the start; either flip is its own inverse
+- All eight orientations are asserted against real pixels in `scripts/smoke.mjs`
+
+---
+
+## File intake
+
+**Status:** Shipped in v0.4 · **Tickets:** P4-04
+
+Files are identified by their first 32 bytes, not by `file.type` — the browser's guess
+from the extension, which is wrong in both directions. A JPEG saved without an
+extension arrives with an empty type; a PDF renamed `.png` arrives as `image/png`.
+
+Every rejection carries a reason naming the file. Someone who selects twelve files and
+sees nine appear has no way to know what happened or whether it was their mistake.
+
+Input is wider than output on purpose. BMP, TIFF, HEIC and ICO decode through the
+browser, so they are accepted even where support is patchy: refusing a file the
+visitor's own browser could open is the worse failure. SVG is refused with its own
+explanation — it is a document rather than a bitmap, and accepting one is a feature
+with its own sanitising, not a line in a list.
+
+**Acceptance**
+- A PDF renamed `.png` is refused by name, not accepted and failed later
+- A JPEG with no extension is accepted
+- An SVG gets its own message rather than a generic "unsupported"
+- The batch cap applies across several drops rather than resetting each time
+- Nothing is ever dropped silently
+
+---
+
 ## Colour handling
 
 **Status:** Settled in v0.2 · **Tickets:** P1-11
@@ -169,7 +227,7 @@ targeting one search intent.
 
 ## Shareable pipelines
 
-**Status:** Phase 4 · **Tickets:** not yet written
+**Status:** Phase 5 · **Tickets:** not yet written
 
 A URL that encodes a pipeline, so a settings combination can be shared or bookmarked.
 
