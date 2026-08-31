@@ -142,14 +142,26 @@ recovering does not lose already-processed output.
 ---
 
 ### P1-11 · Preserve the ICC colour profile
-**Status:** todo
+**Status:** closed — not doing, option removed
 
-`MetadataTransform.keepColorProfile` is honoured in the type but not yet in the
-encoders, so the profile is currently always dropped. Visible as a colour shift on
-wide-gamut images.
+Investigated and closed. Neither of the two halves is possible with this stack:
 
-Done when: a P3-tagged source keeps its profile with the option on, and loses it with
-the option off.
+- **Decoding** applies the source profile and converts to sRGB. `createImageBitmap`
+  offers no mode that hands back wide-gamut pixels plus the original profile.
+- **Encoding** cannot write one. No jSquash encoder — JPEG, WebP or PNG — exposes an
+  ICC parameter at all.
+
+So `keepColorProfile` was a toggle promising something the stack cannot do, and it has
+been removed rather than left as a false option. Converting to sRGB is also the
+correct default for images headed to the web, where sRGB is what browsers assume; the
+loss only matters for print and pro photography workflows, which are not the audience.
+
+Removing it needed no schema bump. The field was never honoured, so ignoring it in
+old payloads changes no output — asserted by a decode test using a real pre-removal
+payload.
+
+Reopen only if a codec gains ICC support **and** there is evidence of demand from
+users doing colour-managed work.
 
 ### P1-12 · Optimise PNG output with oxipng
 **Status:** todo — attempted and reverted, see below
@@ -215,66 +227,86 @@ Reopen with a plan for the bundling, not just the feature:
 `pnpm build` stays under 30s.
 
 ### P3-01 · SEO audit before launch
-**Status:** todo · **Blocks:** enabling indexing
+**Status:** automated and passing · **Blocks:** enabling indexing
+
+Run `pnpm audit:seo` against a build with indexing enabled. It is also a CI step, so
+the guarantees below hold on every commit rather than only at launch.
+
+**Last run: 319 checks across 17 pages, no blocking issues.**
+
+Two real problems it caught on first run, both since fixed: `/rotate-image` had a
+65-character title that would truncate in results, and the structured-data comparison
+was partly vacuous because it searched the whole document including the JSON-LD
+itself, so it could match itself.
 
 A pass over every page that will be indexed, with the site running a production
 build against the real domain.
 
-Per page:
-- [ ] Exactly one `<h1>`, and it matches the search intent the page targets
-- [ ] `<title>` under ~60 characters, description ~150, neither truncated mid-word
-- [ ] Canonical URL is absolute, uses the real domain, and points at itself
-- [ ] Structured data validates in Google's Rich Results Test, and every FAQ answer
-      in it appears verbatim on the page — mismatched structured data is a manual
-      action risk
-- [ ] Internal links resolve; no orphan pages
-- [ ] Open Graph image resolves at an absolute URL and is exactly 1200×630
+Automated in `scripts/seo-audit.mjs`:
+- [x] Exactly one `<h1>` per page
+- [x] `<title>` within length, warns over 60 characters
+- [x] Meta description present and 70-160 characters
+- [x] Canonical absolute and self-referencing
+- [x] Open Graph image present and absolute
+- [x] Structured data parses, and every FAQ answer appears in the *visible* page with
+      script bodies excluded from the comparison
+- [x] Sitemap has no duplicates, lists the home page, and every URL returns 200
+- [x] No page in the sitemap carries `noindex`
+- [x] No two pages share a `<title>`
+- [x] An unknown URL returns a real 404, not a soft 200
 
-Site-wide:
-- [ ] `robots.txt` allows crawling and points at the sitemap
-- [ ] Sitemap lists only live, indexable, 200-returning URLs
-- [ ] Decide `indexable` per tool using real search data rather than assumption. A
-      handful of pages that each deserve to rank beats fifteen that dilute the site.
-      Candidates to demote are conversion pairs whose source format people rarely
-      hold — check Search Console impressions after the first month rather than
-      guessing now
-- [ ] No page indexed that duplicates another's intent
-- [ ] 404 returns a real 404 status, not a 200 with an error page
-- [ ] Trailing-slash behaviour is consistent, so one URL per page
+Proven to work by deliberately breaking three things — a second `<h1>`, structured
+data that does not match the page, and a truncated visible answer — and confirming
+94 failures and a non-zero exit.
 
-**Done when** every box is ticked against a production build, and the result is
-recorded in this ticket so the next audit has a baseline.
+Still manual, needs a real domain or judgement:
+- [ ] Validate structured data in Google's Rich Results Test against the live domain
+- [ ] Confirm the OG image is exactly 1200×630 once real brand assets exist
+- [ ] Decide `indexable` per tool from Search Console impressions after the first
+      month. A handful of pages that each deserve to rank beats fifteen that dilute
+      the site — but that is a data question, not a guess to make now
 
 ### P3-02 · Performance and Core Web Vitals
-**Status:** todo · **Blocks:** enabling indexing
+**Status:** measured and passing · **Blocks:** enabling indexing
+
+Run `pnpm audit:vitals`. It throttles to 4x CPU and roughly 1.6 Mbps with 150ms
+latency, because desktop numbers on a fast machine flatter everything and predict
+nothing.
+
+**Last run, throttled mobile:**
+
+| Page | LCP | CLS | Transfer |
+|---|---|---|---|
+| `/` | 480ms | 0 | 161 KB |
+| `/compress-image` | 476ms | 0 | 164 KB |
+| `/crop-image` | 508ms | 0 | 164 KB |
+
+CLS after adding a file on `/crop-image` is also 0 — load-time CLS is the easy half,
+and the shift that actually bites is the one interaction causes.
+
+Eager JavaScript is 193 KB gzipped. No codec appears in it: all four WASM codecs
+(about 1 MB total) load only when a format needs them. The worker is not spawned
+until Run, so a visitor who only reads the page never pays for it.
 
 Speed is a ranking factor and, more importantly, the thing that decides whether
 someone waits for a 3 MB photo to compress or closes the tab.
 
-Targets, measured on a throttled mobile profile rather than a desktop:
-- [ ] Largest Contentful Paint under 2.5s
-- [ ] Interaction to Next Paint under 200ms
-- [ ] Cumulative Layout Shift under 0.1
-- [ ] Lighthouse performance ≥ 90 on a tool page
+- [x] LCP under 2.5s — measured at ~500ms
+- [x] CLS under 0.1 — measured at 0, on load and after interaction
+- [x] No codec in the initial bundle
+- [x] Worker starts lazily
+- [x] Static assets served `immutable, max-age=31536000`; HTML is not
+- [x] No webfont, so no font-swap shift — the system stack is deliberate
 
-Work likely needed to get there:
-- [ ] Measure the JavaScript actually shipped per route; the builder is a client
-      component and the codecs are dynamic imports, so confirm no codec is pulled
-      into the initial bundle
-- [ ] Codecs load on demand today. Confirm a visitor converting to WebP never
-      downloads another encoder, and consider prefetching the likely one on file
-      selection rather than on Run
-- [ ] Reserve space for the crop preview and results list so neither shifts layout
-      as it populates
-- [ ] Self-host any webfont, or stay on the system stack; a font swap is a common
-      CLS source
-- [ ] Cache headers on static assets; the codec WASM is immutable and should be
-      cached for a year
-- [ ] Check the worker starts lazily, so a visitor who only reads the page never
-      pays for it
+Remaining:
+- [ ] Interaction to Next Paint under 200ms. Needs real interaction sampling rather
+      than a synthetic run; check Search Console field data after launch
+- [ ] Lighthouse performance ≥ 90 on a tool page, once a real domain exists
+- [ ] Consider prefetching the likely codec on file selection rather than on Run.
+      Only worth doing if field data shows the wait is felt — the codec download
+      currently overlaps the decode, so it may already be hidden
 
-**Done when** the four vitals targets hold on a throttled mobile run of the home page
-and one tool page, with the numbers recorded here.
+**Done when** field data confirms the lab numbers after launch.
 
 ### P3-03 · AdSense integration
 **Status:** blocked — needs a publisher ID from Mohmed

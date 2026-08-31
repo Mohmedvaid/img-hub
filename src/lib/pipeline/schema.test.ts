@@ -23,7 +23,7 @@ describe('encodePipeline / decodePipeline', () => {
         { kind: 'crop', x: 10, y: 20, width: 800, height: 600 },
         { kind: 'rotate', degrees: 90, flipHorizontal: true, flipVertical: false },
         { kind: 'resize', mode: 'cover', width: 400, height: 400, allowUpscale: false },
-        { kind: 'metadata', stripExif: true, keepColorProfile: false },
+        { kind: 'metadata', stripExif: true },
       ],
       output: { format: 'avif', quality: 55 },
     }
@@ -142,6 +142,26 @@ describe('decodePipeline rejects untrusted input', () => {
   it('never throws, whatever it is handed', () => {
     for (const input of ['', '???', 'a', '/'.repeat(500), btoa('{"v":')]) {
       expect(() => decodePipeline(input)).not.toThrow()
+    }
+  })
+})
+
+describe('removed fields do not break existing links', () => {
+  it('decodes a payload carrying keepColorProfile, which no longer exists', () => {
+    // Shipped before P1-11 established that no encoder can write an ICC profile.
+    // The field was never honoured, so ignoring it changes no output — which is why
+    // this needed no schema bump.
+    const old = encodeRaw({
+      v: 1,
+      t: [{ kind: 'metadata', stripExif: true, keepColorProfile: true }],
+      o: { format: 'webp', quality: 80 },
+    })
+
+    const decoded = decodePipeline(old)
+
+    expect(decoded.ok).toBe(true)
+    if (decoded.ok) {
+      expect(decoded.value.transforms[0]).toEqual({ kind: 'metadata', stripExif: true })
     }
   })
 })

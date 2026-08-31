@@ -62,7 +62,7 @@ Every operation the pipeline models.
   when rotation changes (ADR-0006, P1-10)
 - ✅ Rotate and flip
 - ✅ Metadata stripping
-- ⬜ Colour profile preservation (P1-11) — the option exists but is not yet honoured
+- ✅ Colour handling settled (P1-11): everything converts to sRGB on decode, which is correct for the web. The unimplementable toggle was removed
 - ✅ Named presets (web page, social square, email attachment, thumbnail, strip location)
 - ⬜ AVIF output (P2-01) — attempted and reverted; the codec package takes the build from 13s to 95s+ for a format that is 5-20x slower to encode than WebP
 - ⬜ Remembering the last-used pipeline between visits

@@ -40,7 +40,14 @@ export async function decodeImage(
 ): Promise<Result<DecodedImage>> {
   let bitmap: ImageBitmap
   try {
-    bitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' })
+    bitmap = await createImageBitmap(blob, {
+      imageOrientation: 'from-image',
+      // Applies the source's colour profile and converts to sRGB. Stated rather than
+      // left to the default, because it is a real decision: sRGB is what browsers
+      // assume, and no encoder here can write a profile back out, so converting on
+      // the way in is what keeps colours correct. See P1-11.
+      colorSpaceConversion: 'default',
+    })
   } catch (thrown) {
     return { ok: false, error: normaliseThrown(thrown, 'decode') }
   }

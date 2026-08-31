@@ -109,6 +109,24 @@ stretches.
 
 ---
 
+## Colour handling
+
+**Status:** Settled in v0.2 · **Tickets:** P1-11
+
+Every image is converted to sRGB on decode, applying whatever profile the source
+carried. Output carries no ICC profile.
+
+This is a decision, not a gap. sRGB is what browsers assume, so a web-bound image is
+correct without one. Preserving a profile is also not achievable here: the browser
+decoder offers no mode that returns wide-gamut pixels alongside the original profile,
+and no WASM encoder in the stack can write one.
+
+The consequence worth knowing: a Display-P3 photo comes out looking right on screen,
+but its wider gamut is not carried through. That matters for print and colour-managed
+work, and not for the web.
+
+---
+
 ## Crop
 
 **Status:** Shipped in v0.2 · **Tickets:** P1-10

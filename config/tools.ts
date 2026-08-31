@@ -82,7 +82,7 @@ function conversionTool(from: ImageFormat, to: ImageFormat): ToolDefinition {
     metaTitle: `${source.label} to ${target.label} Converter — Free & Private`,
     metaDescription: `Convert ${source.label} images to ${target.label} in your browser. Resize and compress in the same pass. Files never leave your device.`,
     preset: {
-      transforms: [{ kind: 'metadata', stripExif: true, keepColorProfile: true }],
+      transforms: [{ kind: 'metadata', stripExif: true }],
       output: { format: to, quality: target.lossy ? DEFAULT_QUALITY : 100 },
     },
     priority: 0.8,
@@ -108,7 +108,7 @@ const STANDALONE_TOOLS: readonly ToolDefinition[] = [
     metaDescription:
       'Shrink JPEG, PNG and WebP files without visible quality loss. Runs entirely in your browser, so nothing is uploaded.',
     preset: {
-      transforms: [{ kind: 'metadata', stripExif: true, keepColorProfile: true }],
+      transforms: [{ kind: 'metadata', stripExif: true }],
       output: { format: 'source', quality: COMPRESS_CHECKBOX_QUALITY },
     },
     priority: 0.9,
@@ -125,7 +125,7 @@ const STANDALONE_TOOLS: readonly ToolDefinition[] = [
     preset: {
       transforms: [
         { kind: 'resize', mode: 'contain', width: 1920, allowUpscale: false },
-        { kind: 'metadata', stripExif: true, keepColorProfile: true },
+        { kind: 'metadata', stripExif: true },
       ],
       output: { format: 'source', quality: DEFAULT_QUALITY },
     },
@@ -144,7 +144,7 @@ const STANDALONE_TOOLS: readonly ToolDefinition[] = [
       // The crop box is filled in from the source dimensions once a file loads.
       transforms: [
         { kind: 'crop', x: 0, y: 0, width: 0, height: 0 },
-        { kind: 'metadata', stripExif: true, keepColorProfile: true },
+        { kind: 'metadata', stripExif: true },
       ],
       output: { format: 'source', quality: DEFAULT_QUALITY },
     },
@@ -156,13 +156,13 @@ const STANDALONE_TOOLS: readonly ToolDefinition[] = [
     indexable: true,
     primary: 'rotate',
     title: 'Rotate & flip images',
-    metaTitle: 'Rotate and Flip Images Online — Free, Private, No Upload',
+    metaTitle: 'Rotate & Flip Images Online — Free and Private',
     metaDescription:
       'Rotate images in 90° steps or mirror them. Crop, resize and convert in the same pass. Nothing is uploaded.',
     preset: {
       transforms: [
         { kind: 'rotate', degrees: 90, flipHorizontal: false, flipVertical: false },
-        { kind: 'metadata', stripExif: true, keepColorProfile: true },
+        { kind: 'metadata', stripExif: true },
       ],
       output: { format: 'source', quality: DEFAULT_QUALITY },
     },

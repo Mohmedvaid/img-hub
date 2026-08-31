@@ -18,7 +18,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "smoke": "node scripts/fixtures.mjs .fixtures && node scripts/smoke.mjs .fixtures"
+    "smoke": "node scripts/fixtures.mjs .fixtures && node scripts/smoke.mjs .fixtures",
+    "audit:seo": "node scripts/seo-audit.mjs",
+    "audit:vitals": "node scripts/vitals.mjs"
   },
   "dependencies": {
     "@jsquash/jpeg": "1.6.0",

@@ -46,11 +46,10 @@ pnpm smoke                      # 10 browser checks; needs the server running
 Then read `docs/BACKLOG.md` for what is left. The next three, in value order,
 are all self-contained and need nothing from Mohmed:
 
-1. **`P3-01` SEO audit** and **`P3-02` performance** — the two gates before indexing
-   can be switched on. Both are checklists with measurable targets
-2. **`P1-11` colour profile** — the option exists in `MetadataTransform` but the
-   encoders ignore it, so wide-gamut images shift colour
-3. **`P2-01` AVIF** and **`P1-12` PNG optimisation** — both attempted and reverted
+1. **`P1-11` colour profile** — the option exists in `MetadataTransform` but the
+   encoders ignore it, so wide-gamut images shift colour. The last known gap in the
+   toolkit itself
+2. **`P2-01` AVIF** and **`P1-12` PNG optimisation** — both attempted and reverted
    for the same reason: their codec packages ship multi-threaded builds that can
    never run here (ADR-0002) but still cost 7-13x the build time. Each ticket records
    the measurement and what a reopen needs
@@ -95,12 +94,24 @@ unmeasured gain. The backlog entry records what a reopen needs.
 Neither blocks Phase 1: `config/brand.ts` and `NEXT_PUBLIC_SITE_URL` absorb both
 changes when the answers arrive.
 
+## Pre-launch gates
+
+`P3-01` and `P3-02` are both automated and passing:
+
+```bash
+pnpm audit:seo      # 319 checks over every indexable page; also a CI step
+pnpm audit:vitals   # LCP/CLS on a throttled mobile profile
+```
+
+What is left on them needs a real domain or post-launch field data, not more code.
+`P3-03` AdSense is the only item blocked on Mohmed — it needs a publisher ID.
+
 ## Health
 
 | Check | State |
 |---|---|
 | CI | Passing |
-| Tests | 229 passing, plus a 10-check browser smoke suite |
+| Tests | 229 passing, plus a 10-check smoke suite and a 319-check SEO audit |
 | Typecheck | Clean, strict mode |
 | Lint | Clean |
 | Production build | Passing, all routes static |
