@@ -430,6 +430,27 @@ settled in [ADR-0007](adr/0007-cloudflare-static-hosting.md).
 **Indexing stays off for all of it.** `NEXT_PUBLIC_ALLOW_INDEXING` is flipped by
 Mohmed, saying so explicitly in chat, and by nobody and nothing else.
 
+### Launch requirements
+
+These are not backlog items to get to. They are the conditions for the site being
+public at all, and every one of them blocks indexing. A ticket elsewhere in this file
+can slip a release; one of these slipping means launch does not happen.
+
+| Requirement | Ticket | State |
+|---|---|---|
+| The builder does not look broken when scrolled | `P5-06` | **not started** |
+| A real support address, not `support@example.com` | `P5-07` | not started, needs Mohmed |
+| About, contact and privacy pages exist and are linked | `P5-01` | done |
+| Deployed and reachable over HTTPS | `P5-03` | done |
+| Analytics collecting, so launch has a baseline | `P5-04` | code done, needs a token |
+| SEO audit passes against the launch config | `P3-01` | passes, minus the support address |
+| Core Web Vitals pass on the real origin | `P3-02` | passes locally, needs the domain |
+| A domain, because a platform subdomain cannot carry ranking or AdSense | `P5-05` | needs a name |
+| AdSense approved | `P3-03` | needs a publisher ID, and everything above |
+
+Ordered by what is worth fixing first, not by dependency: `P5-06` is the only one that
+changes what a visitor sees, and first impressions on a tool site are the product.
+
 ### P5-01 · About, contact and privacy pages
 
 **Status:** `done` · **Phase:** 5
@@ -552,6 +573,58 @@ indexing switch and the AdSense application are one step.
 Done when: the domain resolves, `NEXT_PUBLIC_SITE_URL` is set to it, `pnpm audit:seo`
 passes with `NEXT_PUBLIC_ALLOW_INDEXING=true`, `brand.supportEmail` is real — and
 Mohmed has said, in chat, to turn indexing on.
+
+---
+
+### P5-06 · The builder layout falls apart when scrolled
+
+**Status:** `todo` — **top priority** · **Phase:** 5
+
+Scroll down on the home builder with one image loaded and the left column runs out of
+content while the settings column keeps going, leaving a tall empty band beside the
+controls. It reads as a rendering bug rather than a layout choice, and it is the first
+thing a visitor sees on the page the whole site funnels into.
+
+The cause is structural rather than a stray style. `ImageToolkit` is
+`lg:flex-row lg:items-start` with a short left column (preview, dropzone, results) and
+a tall right one (up to six feature panels plus warnings and the run controls). Any
+fix has to hold when the imbalance reverses: a 40-file batch makes the left column far
+taller than the right, so anything that assumes "the sidebar is the tall one" breaks
+the other way.
+
+Directions worth trying, none decided:
+
+- Make the settings column sticky within the viewport, so it stops scrolling once its
+  bottom is reached. Cheapest, and does nothing for the reverse case.
+- Move the controls under the dropzone in a single column, which removes the mismatch
+  entirely but pushes the run button below a long results list.
+- Give the settings column a two-column grid at wide widths, halving its height.
+- Collapse the optional features into an accordion, so height tracks what is actually
+  switched on.
+
+Needs a look at what the tools people already use do here, and a decision made against
+screenshots rather than in the abstract. Its own branch; Mohmed reviews before merge.
+
+Done when: no dead band at any scroll position on the home builder or a tool page, at
+mobile, tablet and desktop widths, with one file and with forty. The reverse imbalance
+is part of the acceptance, not an afterthought.
+
+### P5-07 · A real support address
+
+**Status:** `blocked` — needs an address from Mohmed · **Phase:** 5
+
+`brand.supportEmail` is `support@example.com`. The contact page renders it, so the one
+route into the site currently goes nowhere. A contact page nobody can use reads worse
+than no contact page, and AdSense checks it.
+
+Cannot be settled from here: it is either a personal address or one on the domain that
+does not exist yet, and which of those it is, is Mohmed's call.
+
+`scripts/seo-audit.mjs` fails on any `example.com` address once indexing is on, so this
+cannot be forgotten, only deliberately deferred.
+
+Done when: `brand.supportEmail` is an address that receives mail, and the audit passes
+with `NEXT_PUBLIC_ALLOW_INDEXING=true`.
 
 ---
 

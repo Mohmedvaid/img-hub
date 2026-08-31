@@ -10,7 +10,7 @@ file is a view, not a source. If the two disagree, the backlog is right.
 | | Count |
 |---|---|
 | Done | 38 |
-| In progress | 1 (Phase 5, launch) |
+| In progress | 3 (Phase 5, launch) |
 | To do (carried) | 2 reverted with reasons, 1 blocked on Mohmed |
 | Blocked | 0 |
 
@@ -140,17 +140,33 @@ unmeasured gain. The backlog entry records what a reopen needs.
 Neither blocks Phase 1: `config/brand.ts` and `NEXT_PUBLIC_SITE_URL` absorb both
 changes when the answers arrive.
 
-## Pre-launch gates
+## Launch requirements
 
-`P3-01` and `P3-02` are both automated and passing:
+Not backlog items to get to — the conditions for the site being public at all. Each
+one blocks indexing. The list lives in
+[BACKLOG.md](BACKLOG.md#launch-requirements); this is the view.
+
+| Requirement | Ticket | State |
+|---|---|---|
+| The builder does not look broken when scrolled | `P5-06` | **not started — top priority** |
+| A real support address | `P5-07` | needs Mohmed |
+| About, contact, privacy pages | `P5-01` | done |
+| Deployed over HTTPS | `P5-03` | done |
+| Analytics collecting | `P5-04` | code done, needs a token |
+| SEO audit passes on the launch config | `P3-01` | passes, minus the support address |
+| Core Web Vitals on the real origin | `P3-02` | passes locally, needs the domain |
+| A domain | `P5-05` | needs a name |
+| AdSense approved | `P3-03` | needs a publisher ID, and everything above |
+
+Two of these are automated and stay that way:
 
 ```bash
-pnpm audit:seo      # 517 checks over 29 pages; also a CI step
+pnpm audit:seo      # 547 checks over 32 pages; also a CI step
 pnpm audit:vitals   # LCP/CLS on a throttled mobile profile
 ```
 
-What is left on them needs a real domain or post-launch field data, not more code.
-`P3-03` AdSense is the only item blocked on Mohmed — it needs a publisher ID.
+`P5-06` is first. It is the only item on the list that changes what a visitor sees,
+and it is on the page the whole site funnels into.
 
 ## Releases
 
