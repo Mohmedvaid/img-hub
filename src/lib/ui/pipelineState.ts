@@ -9,6 +9,7 @@
  * `toPipeline` is the one place that turns this into something the engine runs.
  */
 
+import type { Preset } from '@config/presets'
 import type { FeatureId } from '@/lib/pipeline/features'
 import { COMPRESS_CHECKBOX_QUALITY } from '@/lib/pipeline/features'
 import type { ImageFormat } from '@/lib/pipeline/formats'
@@ -64,6 +65,45 @@ export function initialBuilderState(primary: FeatureId | undefined): BuilderStat
 /** True when at least one feature that changes the file is switched on. */
 export function hasWork(state: BuilderState): boolean {
   return Object.values(state.enabled).some(Boolean)
+}
+
+/**
+ * Applies a named preset over the current state.
+ *
+ * Features the preset does not list are switched off, so picking one produces
+ * exactly what its description promises rather than combining with whatever was
+ * already ticked. Crop is the exception: it is preserved when it was already on,
+ * because a crop box the user drew by hand is work a preset should not silently
+ * discard.
+ */
+export function applyPreset(current: BuilderState, preset: Preset): BuilderState {
+  const enabled: Record<FeatureId, boolean> = {
+    crop: current.enabled.crop,
+    rotate: false,
+    resize: false,
+    convert: false,
+    compress: false,
+    metadata: false,
+  }
+  for (const feature of preset.features) {
+    enabled[feature] = true
+  }
+
+  return {
+    ...current,
+    enabled,
+    resize: preset.resize
+      ? {
+          kind: 'resize',
+          mode: preset.resize.mode,
+          allowUpscale: false,
+          ...(preset.resize.width === undefined ? {} : { width: preset.resize.width }),
+          ...(preset.resize.height === undefined ? {} : { height: preset.resize.height }),
+        }
+      : current.resize,
+    outputFormat: preset.outputFormat ?? current.outputFormat,
+    quality: preset.quality ?? current.quality,
+  }
 }
 
 export function toPipeline(state: BuilderState): Pipeline {

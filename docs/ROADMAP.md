@@ -63,7 +63,7 @@ Every operation the pipeline models.
 - ✅ Rotate and flip
 - ✅ Metadata stripping
 - ⬜ Colour profile preservation (P1-11) — the option exists but is not yet honoured
-- ⬜ Named presets (web hero, social square, email attachment)
+- ✅ Named presets (web page, social square, email attachment, thumbnail, strip location)
 - ⬜ AVIF output behind the slow-encode warning; `site.features.avifOutput` flips on
 - ⬜ Remembering the last-used pipeline between visits
 
