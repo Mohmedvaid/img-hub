@@ -29,7 +29,9 @@ function scriptSources(): string[] {
     )
   }
   if (site.analytics.enabled) {
-    sources.push('https://plausible.io')
+    // Cloudflare Web Analytics serves its beacon from one host and receives
+    // measurements on another; both are needed or it fails silently.
+    sources.push('https://static.cloudflareinsights.com')
   }
   return sources
 }
@@ -50,7 +52,10 @@ function contentSecurityPolicy(): string {
     'font-src': ["'self'", 'data:'],
     // wasm-unsafe-eval is required to instantiate the codec WebAssembly modules.
     'worker-src': ["'self'", 'blob:'],
-    'connect-src': ["'self'", ...(site.analytics.enabled ? ['https://plausible.io'] : [])],
+    'connect-src': [
+      "'self'",
+      ...(site.analytics.enabled ? ['https://cloudflareinsights.com'] : []),
+    ],
     'frame-src': frameSources(),
     'object-src': ["'none'"],
     'base-uri': ["'self'"],

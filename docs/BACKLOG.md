@@ -422,6 +422,216 @@ rasteriser would test the stub. They are asserted on real pixels in
 
 ---
 
+## Phase 5 — Launch (`v0.5.0`)
+
+Everything between a working toolkit and a site that is actually live. Hosting is
+settled in [ADR-0007](adr/0007-cloudflare-static-hosting.md).
+
+**Indexing stays off for all of it.** `NEXT_PUBLIC_ALLOW_INDEXING` is flipped by
+Mohmed, saying so explicitly in chat, and by nobody and nothing else.
+
+### Launch requirements
+
+These are not backlog items to get to. They are the conditions for the site being
+public at all, and every one of them blocks indexing. A ticket elsewhere in this file
+can slip a release; one of these slipping means launch does not happen.
+
+| Requirement | Ticket | State |
+|---|---|---|
+| The builder does not look broken when scrolled | `P5-06` | **not started** |
+| A real support address, not `support@example.com` | `P5-07` | not started, needs Mohmed |
+| About, contact and privacy pages exist and are linked | `P5-01` | done |
+| Deployed and reachable over HTTPS | `P5-03` | done |
+| Analytics collecting, so launch has a baseline | `P5-04` | code done, needs a token |
+| SEO audit passes against the launch config | `P3-01` | passes, minus the support address |
+| Core Web Vitals pass on the real origin | `P3-02` | passes locally, needs the domain |
+| A domain, because a platform subdomain cannot carry ranking or AdSense | `P5-05` | needs a name |
+| AdSense approved | `P3-03` | needs a publisher ID, and everything above |
+
+Ordered by what is worth fixing first, not by dependency: `P5-06` is the only one that
+changes what a visitor sees, and first impressions on a tool site are the product.
+
+### P5-01 · About, contact and privacy pages
+
+**Status:** `done` · **Phase:** 5
+
+A site with no About, Contact or privacy policy reads as abandoned, and AdSense
+rejects one outright. Written now rather than at launch because they also happen to
+be the pages that say what this thing is.
+
+The privacy policy is generated against config rather than written as fixed prose:
+the advertising and analytics sections render only when `site.ads.enabled` and
+`site.analytics.enabled` are on. A policy claiming trackers a site does not run is as
+wrong as one omitting trackers it does, and this way turning either flag on updates
+the policy in the same change that adds the script.
+
+Done when: all three render, the footer links them from every page, they are in the
+sitemap, and `pnpm audit:seo` passes them.
+
+Still needed before launch: `brand.supportEmail` is a placeholder. The SEO audit
+fails on it once indexing is on, so it cannot be forgotten.
+
+### P5-02 · Static export and generated headers
+
+**Status:** `done` · **Phase:** 5
+
+`output: 'export'` in `next.config.ts`, plus `export const dynamic = 'force-static'`
+on `robots.ts` and `sitemap.ts` — without those two lines the build fails on the
+metadata routes. Verified by trial on 2026-08-31.
+
+`headers()` does not run in a static export, so `config/security.ts` needs a build
+step that writes `public/_headers`. Generate it; never hand-write it. The CSP has one
+source of truth and ADR-0002's prohibition on COOP and COEP has to keep applying to
+what is actually served, not just to what `next.config.ts` says.
+
+Done when: `pnpm build` emits `out/`, `_headers` carries the same directives the dev
+server sends today, and a test asserts the generated file contains neither
+`Cross-Origin-Opener-Policy` nor `Cross-Origin-Embedder-Policy`.
+
+Shipped with two things the ticket did not anticipate:
+
+`next start` does not work with a static export, so `pnpm start` now runs
+`scripts/serve.mjs`, a static server that reads `out/_headers` and applies it. Without
+it the smoke suite, the SEO audit and the vitals run would all have been serving the
+files with no security headers — passing while checking a build that is not the one
+production serves.
+
+The generator reads `config/security.ts` directly, using Node's type stripping and a
+ten-line resolve hook for the extensionless imports. The alternative was a hand-copied
+policy, which is exactly the drift this ticket exists to prevent.
+
+`scripts/smoke.mjs` also gained a fix it needed regardless: the non-image check read
+the DOM immediately after selecting a file, racing the byte read that intake does
+before it can say anything. It failed about two runs in five. It now waits.
+
+### P5-03 · Deploy to Cloudflare
+
+**Status:** `done` — live at https://img-hub.mvaid.workers.dev · **Phase:** 5
+
+Workers with static assets, on the free `*.workers.dev` subdomain. No custom domain
+yet: there is no name, and one is not needed while indexing is off.
+
+`wrangler.jsonc` and a pinned `wrangler` devDependency are in place, so the deploy is
+`pnpm deploy:cf` once the CLI is authenticated. The config declares no Worker script —
+this deployment is the contents of `out/` and nothing else. `html_handling` serves
+`/about` from `about.html` without a redirect, and `not_found_handling` returns a real
+404 rather than a soft one.
+
+Everything up to authentication is done. Running it needs Mohmed's account.
+
+Done when: the site is reachable over HTTPS on `*.workers.dev`, `pnpm smoke` and
+`pnpm audit:seo` both pass against that URL, and the response headers match
+`out/_headers`.
+
+Deployed 2026-08-31. Verified against production:
+
+- All six security headers present, CSP byte-identical to the generated file. This
+  also answered the open question about whether `_headers` is a Pages-only feature:
+  Workers static assets honours it. The documented caveat, that it does not apply to
+  Worker-generated responses, does not bite because there is no Worker script.
+- `/_headers` returns 404 — consumed as configuration, not served as a file.
+- `robots.txt` returns `Disallow: /`. Indexing is off, as it stays until Mohmed says
+  otherwise.
+- `pnpm audit:seo` against the live URL: 547 checks over 32 pages, no blocking issues.
+
+The account's `workers.dev` subdomain is `mvaid`, registered during this deploy. It is
+account-level and shared by every future Worker, which is why it is not project-named.
+
+### P5-04 · Cloudflare Web Analytics
+
+**Status:** `done` · **Phase:** 5
+
+Replaces the Plausible wiring. Free, cookieless, no consent banner, and it reports
+Core Web Vitals, which is what `P3-02` needs. `config/site.ts` already gates analytics
+behind an env var; the CSP allowlist and the beacon change.
+
+Done when: analytics loads only when configured, the CSP names Cloudflare rather than
+Plausible, and the privacy policy's analytics section appears with it.
+
+`site.analytics.domain` became `site.analytics.token`, read from
+`NEXT_PUBLIC_ANALYTICS_TOKEN` — Cloudflare identifies a site by beacon token, not by
+hostname. The beacon needs two hosts in the CSP, not one: `static.cloudflareinsights.com`
+serves the script and `cloudflareinsights.com` receives the measurements. Missing
+either makes it fail silently, which is how this gets shipped broken.
+
+Nothing had ever rendered the analytics script; the flag and the CSP entry existed
+without a consumer. `src/components/Analytics.tsx` closes that, and returns null when
+no token is set — which is what makes the privacy policy's claim that this site runs
+no third-party scripts literally true rather than aspirational.
+
+Still needed: the beacon token from the Cloudflare dashboard, which only exists once
+the site is deployed. `P5-03` first.
+
+### P5-05 · Domain, then indexing
+
+**Status:** `blocked` — needs a product name from Mohmed · **Phase:** 5
+
+A free platform subdomain cannot carry ranking signal you intend to move, and AdSense
+will not approve one. Both problems land at the same moment, so the domain, the
+indexing switch and the AdSense application are one step.
+
+Done when: the domain resolves, `NEXT_PUBLIC_SITE_URL` is set to it, `pnpm audit:seo`
+passes with `NEXT_PUBLIC_ALLOW_INDEXING=true`, `brand.supportEmail` is real — and
+Mohmed has said, in chat, to turn indexing on.
+
+---
+
+### P5-06 · The builder layout falls apart when scrolled
+
+**Status:** `todo` — **top priority** · **Phase:** 5
+
+Scroll down on the home builder with one image loaded and the left column runs out of
+content while the settings column keeps going, leaving a tall empty band beside the
+controls. It reads as a rendering bug rather than a layout choice, and it is the first
+thing a visitor sees on the page the whole site funnels into.
+
+The cause is structural rather than a stray style. `ImageToolkit` is
+`lg:flex-row lg:items-start` with a short left column (preview, dropzone, results) and
+a tall right one (up to six feature panels plus warnings and the run controls). Any
+fix has to hold when the imbalance reverses: a 40-file batch makes the left column far
+taller than the right, so anything that assumes "the sidebar is the tall one" breaks
+the other way.
+
+Directions worth trying, none decided:
+
+- Make the settings column sticky within the viewport, so it stops scrolling once its
+  bottom is reached. Cheapest, and does nothing for the reverse case.
+- Move the controls under the dropzone in a single column, which removes the mismatch
+  entirely but pushes the run button below a long results list.
+- Give the settings column a two-column grid at wide widths, halving its height.
+- Collapse the optional features into an accordion, so height tracks what is actually
+  switched on.
+
+Needs a look at what the tools people already use do here, and a decision made against
+screenshots rather than in the abstract. Its own branch; Mohmed reviews before merge.
+
+Done when: no dead band at any scroll position on the home builder or a tool page, at
+mobile, tablet and desktop widths, with one file and with forty. The reverse imbalance
+is part of the acceptance, not an afterthought.
+
+### P5-07 · A real support address
+
+**Status:** `blocked` — needs an address from Mohmed · **Phase:** 5
+
+`brand.supportEmail` is `support@example.com`. The contact page renders it, so the one
+route into the site currently goes nowhere. A contact page nobody can use reads worse
+than no contact page, and AdSense checks it.
+
+Cannot be settled from here: it is either a personal address or one on the domain that
+does not exist yet, and which of those it is, is Mohmed's call.
+
+`scripts/seo-audit.mjs` fails on any `example.com` address once indexing is on **and**
+the origin being audited is a real deployment, so this cannot be forgotten, only
+deliberately deferred. Both conditions are needed: CI audits a synthetic origin with
+indexing forced on to exercise the launch config, and that is a rehearsal rather than
+a launch. Gating on the indexing flag alone turned CI red for a problem that only
+matters on a site people can reach.
+
+Done when: `brand.supportEmail` is an address that receives mail, and the audit passes
+with `NEXT_PUBLIC_ALLOW_INDEXING=true`.
+
+---
+
 ## Unscheduled
 
 Ideas with no phase. Promote by giving one an ID, or delete it.

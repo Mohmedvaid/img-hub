@@ -2,6 +2,8 @@ import { brand } from '@config/brand'
 import { site } from '@config/site'
 import { cssVariables, theme } from '@config/theme'
 import type { Metadata, Viewport } from 'next'
+import { Analytics } from '@/components/Analytics'
+import { Footer } from '@/components/Footer'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -36,7 +38,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: generated from a typed config object, never user input */}
         <style dangerouslySetInnerHTML={{ __html: cssVariables() }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Footer />
+        <Analytics />
+      </body>
     </html>
   )
 }

@@ -227,7 +227,7 @@ targeting one search intent.
 
 ## Shareable pipelines
 
-**Status:** Phase 5 · **Tickets:** not yet written
+**Status:** Phase 6 · **Tickets:** not yet written
 
 A URL that encodes a pipeline, so a settings combination can be shared or bookmarked.
 

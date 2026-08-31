@@ -63,7 +63,7 @@ ZIP contents. It covers the WASM codec and Web Worker paths that unit tests cann
 reach. Run it against either `pnpm dev` or a production build:
 
 ```bash
-pnpm dev &            # or: pnpm build && pnpm start &
+pnpm dev &            # or: pnpm build && pnpm start &   (start serves out/ with out/_headers)
 pnpm smoke
 ```
 

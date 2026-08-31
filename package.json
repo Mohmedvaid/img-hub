@@ -9,8 +9,8 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "build": "next build && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/headers.mjs",
+    "start": "node scripts/serve.mjs out 3000",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
@@ -21,7 +21,8 @@
     "verify": "pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build",
     "smoke": "node scripts/fixtures.mjs .fixtures && node scripts/smoke.mjs .fixtures",
     "audit:seo": "node scripts/seo-audit.mjs",
-    "audit:vitals": "node scripts/vitals.mjs"
+    "audit:vitals": "node scripts/vitals.mjs",
+    "deploy:cf": "pnpm build && WRANGLER_SEND_METRICS=false wrangler deploy"
   },
   "dependencies": {
     "@jsquash/jpeg": "1.6.0",
@@ -48,6 +49,7 @@
     "playwright": "1.56.1",
     "tailwindcss": "4.1.18",
     "typescript": "5.9.3",
-    "vitest": "3.2.4"
+    "vitest": "3.2.4",
+    "wrangler": "4.127.1"
   }
 }

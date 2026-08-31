@@ -47,6 +47,10 @@ jobs:
       # The geometry operations draw on a real canvas and the encoders are WASM, so
       # neither exists under jsdom. This is the only place they are actually asserted,
       # and it has already caught a bug the unit suite passed over — see P4-06.
+      #
+      # `pnpm start` serves the static export through scripts/serve.mjs, applying
+      # out/_headers. That means these runs exercise the real CSP rather than a
+      # header-free approximation of it.
       - name: Browser smoke
         run: |
           npx playwright install --with-deps chromium
@@ -56,7 +60,7 @@ jobs:
           node scripts/fixtures.mjs .fixtures
           node scripts/smoke.mjs .fixtures
           # Free port 3000 for the SEO audit, which starts its own server.
-          pkill -f next-server || true
+          pkill -f 'scripts/serve.mjs' || true
 
       # Runs against the launch configuration rather than the default one, so the
       # audit sees the canonicals, robots directives and sitemap production will
