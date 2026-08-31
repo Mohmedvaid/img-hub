@@ -64,16 +64,21 @@ Every operation the pipeline models.
 - AVIF output behind the slow-encode warning; `site.features.avifOutput` flips on
 - Remembering the last-used pipeline between visits
 
-## Phase 3 — SEO surface `v0.3.0`
+## Phase 3 — SEO surface `v0.3.0` — mostly shipped
 
-Where traffic comes from. The registry already exists; this ships its routes.
+Where traffic comes from. The registry already existed; this shipped its routes.
 
-- Generated tool pages from `config/tools.ts`, flipping each to `status: 'live'`
-- Per-page copy, FAQ and `HowTo`/`FAQPage` structured data
-- Internal linking between related tools; every tool page deep-links to the builder
-- Sitemap and canonical coverage for the full matrix
-- Core Web Vitals pass on mobile
-- AdSense integration behind `site.ads.enabled`
+- ✅ 15 static tool pages generated from `config/tools.ts`
+- ✅ Per-page copy and FAQ derived from format facts, so `png-to-jpg` warns about
+  transparency and `png-to-webp` does not. Thin-duplicate risk is covered by tests
+  asserting distinct intros and substantive answers
+- ✅ `FAQPage` structured data, generated from the same source as the visible copy
+- ✅ Internal linking between related tools; every page links to the full builder
+- ✅ Sitemap and canonical coverage
+- ⬜ `crop-image` stays dark until its selection UI ships — a page that cannot do what
+  its title promises is worse than no page
+- ⬜ Core Web Vitals pass on mobile
+- ⬜ AdSense integration behind `site.ads.enabled`
 
 ## Phase 4 — Polish `v1.0.0`
 

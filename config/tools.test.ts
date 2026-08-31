@@ -39,6 +39,18 @@ describe('tool registry', () => {
     expect(liveTools().map((tool) => tool.slug)).toContain('compress-image')
   })
 
+  it('keeps crop dark until its selection UI exists', () => {
+    // A page that cannot do what its title promises is worse than no page.
+    expect(liveTools().map((tool) => tool.slug)).not.toContain('crop-image')
+  })
+
+  it('ships every conversion pair, since convert works today', () => {
+    const live = liveTools().map((tool) => tool.slug)
+    expect(live).toContain('png-to-webp')
+    expect(live).toContain('jpg-to-webp')
+    expect(live.filter((slug) => slug.includes('-to-')).length).toBeGreaterThanOrEqual(12)
+  })
+
   it('looks a tool up by slug', () => {
     expect(findTool('compress-image')?.title).toBe('Compress images')
     expect(findTool('does-not-exist')).toBeUndefined()

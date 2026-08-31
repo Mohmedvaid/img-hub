@@ -152,13 +152,28 @@ Done when: a P3-tagged source keeps its profile with the option on, and loses it
 the option off.
 
 ### P1-12 · Optimise PNG output with oxipng
-**Status:** todo
+**Status:** todo — attempted and reverted, see below
 
-PNG output is a plain re-encode today, which shrinks bloated files but leaves real
-savings on the table. `@jsquash/oxipng` does the actual optimisation.
+PNG output is a plain re-encode today, which leaves some savings on the table.
+`@jsquash/oxipng` does the real optimisation.
 
-Done when: a PNG re-encode is measurably smaller than the current output on the
-fixture set, with no pixel difference.
+**Tried on 2026-08-31 and reverted.** Adding it took a cold production build from
+**13s to over 175s**. The cause is `@jsquash/oxipng` shipping a `pkg-parallel` build
+with `wasm-bindgen-rayon` nested workers, which the bundler has to process. That
+build can never run here: oxipng's own README says multithreading requires the
+COOP/COEP headers ADR-0002 permanently forbids. So it is 284 KB of dead code that
+costs 13x the build time to bundle.
+
+Reopen only with a measurement in hand. Specifically:
+
+1. Measure oxipng level 2 against the current plain encode on the fixture set. The
+   expected gain is roughly 5-20%, against WebP conversion's 90%+ on the same files —
+   and the compressor page already recommends exactly that.
+2. If the gain justifies it, avoid bundling `pkg-parallel`, either via a Turbopack
+   `resolveAlias` stub or by importing the single-threaded codec directly.
+
+Done when: a PNG re-encode is measurably smaller on the fixture set with no pixel
+difference, **and** a cold `pnpm build` stays under 30s.
 
 ## Unscheduled
 

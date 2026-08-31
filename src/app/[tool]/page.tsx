@@ -3,7 +3,9 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ImageToolkit } from '@/components/ImageToolkit'
+import { ToolPageContent, ToolStructuredData } from '@/components/ToolPageContent'
 import { buildMetadata } from '@/lib/seo/metadata'
+import { toolContent } from '@/lib/seo/toolContent'
 
 type ToolPageProps = { params: Promise<{ tool: string }> }
 
@@ -37,16 +39,22 @@ export default async function ToolPage({ params }: ToolPageProps) {
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
+      <ToolStructuredData tool={tool} />
+
       <header className="mb-8">
         <h1 className="font-semibold text-2xl text-fg-primary tracking-tight sm:text-3xl">
           {tool.title}
         </h1>
-        <p className="mt-1 text-fg-secondary">{tool.metaDescription}</p>
+        <p className="mt-2 max-w-2xl text-fg-secondary leading-relaxed">
+          {toolContent(tool).intro}
+        </p>
       </header>
 
       <ErrorBoundary label="toolkit">
         <ImageToolkit primary={tool.primary} />
       </ErrorBoundary>
+
+      <ToolPageContent tool={tool} />
     </main>
   )
 }
