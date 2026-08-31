@@ -3,15 +3,15 @@
 Where the project is **right now**. Regenerated from [BACKLOG.md](BACKLOG.md) — this
 file is a view, not a source. If the two disagree, the backlog is right.
 
-**Last updated:** 2026-08-31 · **Release:** `v0.2.0` · **Phase:** 1 complete, 2 and 3 mostly shipped
+**Last updated:** 2026-08-31 · **Release:** `v0.2.0` · **Phase:** 1 and 2 complete, 3 clear of everything but AdSense
 
 ## At a glance
 
 | | Count |
 |---|---|
-| Done | 23 |
+| Done | 27 |
 | In progress | 0 |
-| To do (carried) | 2 |
+| To do (carried) | 2 reverted with reasons, 1 blocked on Mohmed |
 | Blocked | 0 |
 
 ## In progress
@@ -111,7 +111,7 @@ What is left on them needs a real domain or post-launch field data, not more cod
 | Check | State |
 |---|---|
 | CI | Passing |
-| Tests | 229 passing, plus a 10-check smoke suite and a 319-check SEO audit |
+| Tests | 230 passing, plus a 10-check smoke suite and a 319-check SEO audit |
 | Typecheck | Clean, strict mode |
 | Lint | Clean |
 | Production build | Passing, all routes static |
