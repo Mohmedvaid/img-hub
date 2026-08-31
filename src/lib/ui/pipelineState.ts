@@ -16,17 +16,17 @@ import type { ImageFormat } from '@/lib/pipeline/formats'
 import type { CropTransform } from '@/lib/pipeline/operations/crop'
 import type { MetadataTransform } from '@/lib/pipeline/operations/metadata'
 import type { ResizeTransform } from '@/lib/pipeline/operations/resize'
-import type { RotateTransform } from '@/lib/pipeline/operations/rotate'
 import {
   DEFAULT_QUALITY,
   type OutputFormat,
   type Pipeline,
   type Transform,
 } from '@/lib/pipeline/types'
+import { fromTransform, type Orientation, toTransform, UPRIGHT } from './orientation'
 
 export type BuilderState = {
   readonly enabled: Readonly<Record<FeatureId, boolean>>
-  readonly rotate: RotateTransform
+  readonly orientation: Orientation
   readonly resize: ResizeTransform
   readonly crop: CropTransform
   readonly metadata: MetadataTransform
@@ -40,9 +40,17 @@ export type BuilderState = {
  * The primary feature is always on: it is what the page is about, and it cannot be
  * switched off. Everything else starts off, so a page never does something the
  * visitor did not ask for.
+ *
+ * A tool's `preset` from config/tools.ts seeds the rest. Without it every conversion
+ * page would start on the same output format, so `png-to-jpg` would quietly hand back
+ * WebP — the page ranks for one thing and does another. The preset is the page's
+ * declaration of intent, so it is what the builder loads.
  */
-export function initialBuilderState(primary: FeatureId | undefined): BuilderState {
-  const off: Record<FeatureId, boolean> = {
+export function initialBuilderState(
+  primary: FeatureId | undefined,
+  preset?: Pipeline,
+): BuilderState {
+  const enabled: Record<FeatureId, boolean> = {
     crop: false,
     rotate: false,
     resize: false,
@@ -50,15 +58,65 @@ export function initialBuilderState(primary: FeatureId | undefined): BuilderStat
     compress: false,
     metadata: false,
   }
+  if (primary) enabled[primary] = true
 
-  return {
-    enabled: primary ? { ...off, [primary]: true } : off,
-    rotate: { kind: 'rotate', degrees: 90, flipHorizontal: false, flipVertical: false },
+  const base: BuilderState = {
+    enabled,
+    orientation: UPRIGHT,
     resize: { kind: 'resize', mode: 'contain', width: 1920, allowUpscale: false },
     crop: { kind: 'crop', x: 0, y: 0, width: 0, height: 0 },
     metadata: { kind: 'metadata', stripExif: true },
     outputFormat: 'webp',
     quality: DEFAULT_QUALITY,
+  }
+
+  return preset ? fromPipeline(base, preset) : base
+}
+
+/**
+ * Folds a pipeline into builder state.
+ *
+ * Every transform the pipeline carries switches its feature on, because a preset
+ * listing a transform is asking for it to run. `'source'` output leaves the format
+ * picker on its default without ticking convert, since keeping the source format is
+ * what not converting means.
+ */
+function fromPipeline(base: BuilderState, pipeline: Pipeline): BuilderState {
+  const enabled = { ...base.enabled }
+  let { orientation, resize, crop, metadata } = base
+
+  for (const transform of pipeline.transforms) {
+    switch (transform.kind) {
+      case 'rotate':
+        enabled.rotate = true
+        orientation = fromTransform(transform)
+        break
+      case 'crop':
+        enabled.crop = true
+        crop = transform
+        break
+      case 'resize':
+        enabled.resize = true
+        resize = transform
+        break
+      case 'metadata':
+        enabled.metadata = true
+        metadata = transform
+        break
+    }
+  }
+
+  if (pipeline.output.format !== 'source') enabled.convert = true
+
+  return {
+    ...base,
+    enabled,
+    orientation,
+    resize,
+    crop,
+    metadata,
+    outputFormat: pipeline.output.format === 'source' ? base.outputFormat : pipeline.output.format,
+    quality: pipeline.output.quality,
   }
 }
 
@@ -109,7 +167,7 @@ export function applyPreset(current: BuilderState, preset: Preset): BuilderState
 export function toPipeline(state: BuilderState): Pipeline {
   const transforms: Transform[] = []
 
-  if (state.enabled.rotate) transforms.push(state.rotate)
+  if (state.enabled.rotate) transforms.push(toTransform(state.orientation))
   if (state.enabled.crop) transforms.push(state.crop)
   if (state.enabled.resize) transforms.push(state.resize)
   if (state.enabled.metadata) transforms.push(state.metadata)
@@ -118,9 +176,12 @@ export function toPipeline(state: BuilderState): Pipeline {
   // resize never silently hands back a different file type.
   const format: OutputFormat = state.enabled.convert ? state.outputFormat : 'source'
 
-  // Compression as a bare checkbox applies a sensible quality; the slider only
-  // exists where compress is the page's primary feature.
-  const quality = state.enabled.compress ? state.quality : COMPRESS_CHECKBOX_QUALITY
+  // Encoding always needs a quality, so the question is only whose. Ticking compress
+  // or convert is an explicit choice about the output, and the page's own value —
+  // seeded from config/tools.ts — is what answers it. Otherwise nobody has said
+  // anything about the encode, and the conservative checkbox default applies.
+  const chosen = state.enabled.compress || state.enabled.convert
+  const quality = chosen ? state.quality : COMPRESS_CHECKBOX_QUALITY
 
   return { transforms, output: { format, quality } }
 }

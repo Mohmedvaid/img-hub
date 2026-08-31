@@ -36,11 +36,27 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # Coverage rather than a bare run: vitest.config.ts carries 80% thresholds, and
+      # a threshold nothing enforces is a comment.
       - name: Test
-        run: pnpm test
+        run: pnpm test:coverage
 
       - name: Build
         run: pnpm build
+
+      # The geometry operations draw on a real canvas and the encoders are WASM, so
+      # neither exists under jsdom. This is the only place they are actually asserted,
+      # and it has already caught a bug the unit suite passed over — see P4-06.
+      - name: Browser smoke
+        run: |
+          npx playwright install --with-deps chromium
+          pnpm build
+          pnpm start &
+          for i in $(seq 1 30); do curl -sf -o /dev/null http://localhost:3000/ && break; sleep 1; done
+          node scripts/fixtures.mjs .fixtures
+          node scripts/smoke.mjs .fixtures
+          # Free port 3000 for the SEO audit, which starts its own server.
+          pkill -f next-server || true
 
       # Runs against the launch configuration rather than the default one, so the
       # audit sees the canonicals, robots directives and sitemap production will

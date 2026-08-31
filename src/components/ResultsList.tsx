@@ -21,7 +21,7 @@ export function ResultsList({ files, onRemove, onDownload, busy }: ResultsListPr
   if (files.length === 0) return null
 
   return (
-    <ul className="flex flex-col gap-2">
+    <ul data-testid="results" className="flex flex-col gap-2">
       {files.map((entry) => (
         <li
           key={entry.id}

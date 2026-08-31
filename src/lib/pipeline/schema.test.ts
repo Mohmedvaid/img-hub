@@ -88,7 +88,7 @@ describe('decodePipeline rejects untrusted input', () => {
     ['not base64 at all', '!!!not-base64!!!'],
     ['valid base64 that is not JSON', btoa('plain text')],
     ['JSON with no version field', encodeRaw({ t: [], o: { format: 'webp', quality: 80 } })],
-    ['an unknown output format', encodeRaw({ v: 1, t: [], o: { format: 'bmp', quality: 80 } })],
+    ['an unknown output format', encodeRaw({ v: 1, t: [], o: { format: 'psd', quality: 80 } })],
     ['quality above the range', encodeRaw({ v: 1, t: [], o: { format: 'webp', quality: 900 } })],
     ['quality below the range', encodeRaw({ v: 1, t: [], o: { format: 'webp', quality: 0 } })],
     ['a non-integer quality', encodeRaw({ v: 1, t: [], o: { format: 'webp', quality: 80.5 } })],

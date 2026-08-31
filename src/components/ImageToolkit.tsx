@@ -5,13 +5,26 @@ import { type Preset, presets } from '@config/presets'
 import { zipSync } from 'fflate'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { type PipelineError, pipelineError } from '@/lib/pipeline/errors'
-import { availableOptionalFeatures, type FeatureId, featureInfo } from '@/lib/pipeline/features'
-import { formatFromMimeType, formatInfo, losesTransparency } from '@/lib/pipeline/formats'
-import type { ResizeTransform } from '@/lib/pipeline/operations/resize'
+import {
+  availableOptionalFeatures,
+  type FeatureId,
+  type FeatureInfo,
+  featureInfo,
+} from '@/lib/pipeline/features'
+import {
+  formatFromMimeType,
+  formatInfo,
+  type ImageFormat,
+  losesTransparency,
+} from '@/lib/pipeline/formats'
+import type { CropTransform } from '@/lib/pipeline/operations/crop'
 import { formatBytes } from '@/lib/pipeline/runner'
+import { type Pipeline, QUALITY_RANGE } from '@/lib/pipeline/types'
 import { PipelineClient } from '@/lib/pipeline/worker/client'
 import { type BatchFile, batchReducer, batchTotals, initialBatch } from '@/lib/ui/batch'
-import { remapCrop } from '@/lib/ui/cropGeometry'
+import { ASPECT_RATIOS, type Frame, remapCrop } from '@/lib/ui/cropGeometry'
+import { intakeFiles, rejectionSummary } from '@/lib/ui/intake'
+import { type Orientation, toTransform, UPRIGHT } from '@/lib/ui/orientation'
 import {
   applyPreset,
   type BuilderState,
@@ -19,34 +32,34 @@ import {
   initialBuilderState,
   toPipeline,
 } from '@/lib/ui/pipelineState'
-import { CropEditor } from './CropEditor'
 import { DropZone } from './DropZone'
 import { ErrorBoundary } from './ErrorBoundary'
 import { FeatureToggle } from './FeatureToggle'
+import { ImagePreview } from './ImagePreview'
+import { OrientationControls } from './OrientationControls'
 import { ResultsList } from './ResultsList'
-
-/** The identity orientation, used as the "from" when rotation is switched off. */
-const UNROTATED = {
-  kind: 'rotate',
-  degrees: 0,
-  flipHorizontal: false,
-  flipVertical: false,
-} as const
 
 type ImageToolkitProps = {
   /** The feature this page is about. Always on, never a checkbox. Omit on the home builder. */
   primary?: FeatureId
+  /**
+   * The state this page opens in, from its entry in config/tools.ts.
+   *
+   * It is what makes one conversion page differ from another; without it every
+   * converter would start on the same output format.
+   */
+  preset?: Pipeline
 }
 
-export function ImageToolkit({ primary }: ImageToolkitProps) {
+export function ImageToolkit({ primary, preset }: ImageToolkitProps) {
   const [batch, dispatch] = useReducer(batchReducer, initialBatch)
-  const [builder, setBuilder] = useState<BuilderState>(() => initialBuilderState(primary))
-  const [sourceFrame, setSourceFrame] = useState<{ width: number; height: number }>()
+  const [builder, setBuilder] = useState<BuilderState>(() => initialBuilderState(primary, preset))
+  const [sourceFrame, setSourceFrame] = useState<Frame>()
   const [activePreset, setActivePreset] = useState<string>()
+  const [cropRatio, setCropRatio] = useState<number>()
+  const [skipped, setSkipped] = useState<string>()
   const clientRef = useRef<PipelineClient>(null)
 
-  // One worker for the page's lifetime. Created lazily so nothing is spawned for a
-  // visitor who only reads the page.
   useEffect(() => {
     const client = new PipelineClient()
     clientRef.current = client
@@ -59,34 +72,28 @@ export function ImageToolkit({ primary }: ImageToolkitProps) {
   )
 
   /**
-   * Applies any change that alters the image's orientation, moving the crop box with
-   * it — P1-10.
+   * Changing orientation moves the crop box with it.
    *
    * Crop coordinates are in post-rotation space (ADR-0006), so turning the image
-   * without moving the box silently selects a different region. Two separate things
-   * change orientation: editing the rotation, and switching the rotate feature on or
-   * off (its default is a quarter turn, so toggling it is a real change). Both route
-   * through here so neither can skip the remap.
+   * without moving the box silently selects a different region. Enabling or disabling
+   * the rotate feature counts as an orientation change too, so both route through here.
    */
-  const changeOrientation = useCallback(
-    (change: { enabled?: boolean; rotate?: Partial<BuilderState['rotate']> }) => {
+  const applyOrientation = useCallback(
+    (nextOrientation: Orientation, nextEnabled?: boolean) => {
+      setActivePreset(undefined)
       setBuilder((current) => {
-        const nextEnabled = change.enabled ?? current.enabled.rotate
-        const nextRotate = { ...current.rotate, ...change.rotate }
-
+        const enabled = nextEnabled ?? current.enabled.rotate
         const next: BuilderState = {
           ...current,
-          rotate: nextRotate,
-          enabled: { ...current.enabled, rotate: nextEnabled },
+          orientation: nextOrientation,
+          enabled: { ...current.enabled, rotate: enabled },
         }
 
-        const from = current.enabled.rotate ? current.rotate : UNROTATED
-        const to = nextEnabled ? nextRotate : UNROTATED
-
-        const unchanged =
-          from.degrees === to.degrees &&
-          from.flipHorizontal === to.flipHorizontal &&
-          from.flipVertical === to.flipVertical
+        const from = toTransform(
+          current.enabled.rotate ? current.orientation : { rotation: 0, mirrored: false },
+        )
+        const to = toTransform(enabled ? nextOrientation : { rotation: 0, mirrored: false })
+        const unchanged = from.degrees === to.degrees && from.flipHorizontal === to.flipHorizontal
 
         if (unchanged || !current.enabled.crop || current.crop.width === 0 || !sourceFrame) {
           return next
@@ -104,18 +111,28 @@ export function ImageToolkit({ primary }: ImageToolkitProps) {
   const setEnabled = useCallback(
     (id: FeatureId, enabled: boolean) => {
       if (id === 'rotate') {
-        changeOrientation({ enabled })
+        applyOrientation(builder.orientation, enabled)
         return
       }
       setActivePreset(undefined)
       setBuilder((current) => ({ ...current, enabled: { ...current.enabled, [id]: enabled } }))
     },
-    [changeOrientation],
+    [applyOrientation, builder.orientation],
   )
 
-  const setRotation = useCallback(
-    (rotate: Partial<BuilderState['rotate']>) => changeOrientation({ rotate }),
-    [changeOrientation],
+  const addFiles = useCallback(
+    async (files: readonly File[]) => {
+      const result = await intakeFiles(files, limits, batch.files.length)
+      setSkipped(rejectionSummary(result.rejected))
+      if (result.accepted.length > 0) {
+        dispatch({
+          type: 'add',
+          files: result.accepted.map((entry) => entry.file),
+          max: limits.maxFilesPerBatch,
+        })
+      }
+    },
+    [batch.files.length],
   )
 
   const run = useCallback(async () => {
@@ -124,74 +141,57 @@ export function ImageToolkit({ primary }: ImageToolkitProps) {
 
     const pipeline = toPipeline(builder)
     const engineLimits = pipelineLimits()
-
     dispatch({ type: 'start' })
 
-    // Sequential rather than parallel: every job competes for the same decoder and
-    // the same memory, so running them at once makes each slower and risks an
-    // out-of-memory kill on a phone. One at a time also makes progress honest.
+    // Sequential: every job competes for the same decoder and the same memory, so
+    // running them at once makes each slower and risks an out-of-memory kill.
     for (const entry of batch.files) {
       try {
         const { result } = client.run(entry.file.name, entry.file, pipeline, engineLimits, {
           onProgress: (stage) => dispatch({ type: 'progress', id: entry.id, stage }),
         })
         dispatch({ type: 'succeeded', id: entry.id, output: await result })
-      } catch (error) {
-        dispatch({
-          type: 'failed',
-          id: entry.id,
-          error: error as ReturnType<typeof Object> as never,
-        })
+      } catch (thrown) {
+        dispatch({ type: 'failed', id: entry.id, error: asPipelineError(thrown) })
       }
     }
 
     dispatch({ type: 'finish' })
   }, [batch.files, builder])
 
-  // Crop is drawn against the first file and clamped for the rest, so a batch of
-  // mixed dimensions still works rather than being refused.
   const previewFile = batch.files[0]?.file
-  const onSourceLoad = useCallback((frame: { width: number; height: number }) => {
-    setSourceFrame((current) =>
-      current?.width === frame.width && current?.height === frame.height ? current : frame,
-    )
-  }, [])
-  const totals = batchTotals(batch.files)
-  const ready = batch.files.length > 0 && hasWork(builder) && !batch.running
+  const count = batch.files.length
+  const ready = count > 0 && hasWork(builder) && !batch.running
+
+  // Geometry controls sit beside the preview rather than under a checkbox, so they
+  // appear whenever their feature is on — as the page's own, or because it was ticked.
+  const showOrientation = primary === 'rotate' || builder.enabled.rotate
+  const showCropRatio = (primary === 'crop' || builder.enabled.crop) && previewFile !== undefined
+
+  // Crop is drawn on the first file; a mixed-size batch clamps for the rest.
+  const mixedSizes = builder.enabled.crop && count > 1
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       <section className="flex min-w-0 flex-1 flex-col gap-4">
-        <DropZone
-          onFiles={(files) => dispatch({ type: 'add', files, max: limits.maxFilesPerBatch })}
-          disabled={batch.running}
-          count={batch.files.length}
+        <PreviewPane
+          file={previewFile}
+          count={count}
+          builder={builder}
+          cropRatio={cropRatio}
+          onSourceLoad={setSourceFrame}
+          onCropChange={(crop) => setBuilder((c) => ({ ...c, crop }))}
         />
 
-        {totals.done > 0 ? (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-[--radius-md] border border-border bg-bg-sunken px-3 py-2.5 text-sm">
-            <span className="font-medium text-fg-primary">
-              {totals.done} done{totals.failed > 0 ? `, ${totals.failed} failed` : ''}
-            </span>
-            <span className="text-fg-secondary">
-              {formatBytes(totals.bytesIn)} → {formatBytes(totals.bytesOut)}
-            </span>
-            <span className={totals.savedPercent >= 0 ? 'text-success' : 'text-warning'}>
-              {totals.savedPercent >= 0
-                ? `${totals.savedPercent}% smaller`
-                : `${Math.abs(totals.savedPercent)}% larger`}
-            </span>
-            {totals.done > 1 ? (
-              <button
-                type="button"
-                onClick={() => downloadZip(batch.files)}
-                className="ml-auto rounded-[--radius-sm] bg-brand px-3 py-1 font-medium text-brand-fg text-xs hover:bg-brand-hover"
-              >
-                Download all (.zip)
-              </button>
-            ) : null}
-          </div>
+        <DropZone onFiles={addFiles} disabled={batch.running} count={count} />
+
+        {skipped ? (
+          <p className="rounded-[--radius-sm] bg-warning/10 px-3 py-2 text-warning text-sm">
+            {skipped}
+          </p>
         ) : null}
+
+        <BatchSummary files={batch.files} />
 
         <ErrorBoundary label="results list">
           <ResultsList
@@ -205,70 +205,266 @@ export function ImageToolkit({ primary }: ImageToolkitProps) {
 
       <aside className="flex w-full shrink-0 flex-col gap-3 lg:w-80">
         {primary ? (
-          <PrimaryPanel
-            primary={primary}
-            builder={builder}
-            setBuilder={setBuilder}
-            setRotation={setRotation}
-            previewFile={previewFile}
-            onSourceLoad={onSourceLoad}
-          />
+          <PrimaryPanel primary={primary} builder={builder} setBuilder={setBuilder} />
         ) : (
           <PresetPicker
             active={activePreset}
-            onPick={(preset) => {
-              setActivePreset(preset.id)
-              setBuilder((current) => applyPreset(current, preset))
+            onPick={(chosen) => {
+              setActivePreset(chosen.id)
+              setBuilder((current) => applyPreset(current, chosen))
             }}
           />
         )}
 
-        {optional.map((feature) => (
-          <FeatureToggle
-            key={feature.id}
-            feature={feature}
-            enabled={builder.enabled[feature.id]}
-            onToggle={(enabled) => setEnabled(feature.id, enabled)}
-          >
-            <FeatureFields
-              id={feature.id}
-              builder={builder}
-              setBuilder={setBuilder}
-              setRotation={setRotation}
-              previewFile={previewFile}
-              onSourceLoad={onSourceLoad}
+        {showOrientation ? (
+          <Panel title="Orientation">
+            <OrientationControls
+              orientation={builder.orientation}
+              onChange={(next) => applyOrientation(next, true)}
             />
-          </FeatureToggle>
-        ))}
+          </Panel>
+        ) : null}
+
+        {showCropRatio ? (
+          <Panel title="Crop ratio">
+            <RatioPicker active={cropRatio} onPick={setCropRatio} mixedSizes={mixedSizes} />
+          </Panel>
+        ) : null}
+
+        <FeatureChecklist
+          optional={optional}
+          builder={builder}
+          setBuilder={setBuilder}
+          onToggle={setEnabled}
+        />
 
         <TransparencyWarning builder={builder} files={batch.files} />
         <LosslessQualityNote builder={builder} files={batch.files} />
 
-        <div className="flex gap-2">
-          <button
-            type="button"
-            disabled={!ready}
-            onClick={() => void run()}
-            className="flex-1 rounded-[--radius-md] bg-brand px-4 py-2.5 font-medium text-brand-fg text-sm transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {batch.running ? 'Working…' : 'Run'}
-          </button>
+        <RunControls
+          count={count}
+          ready={ready}
+          running={batch.running}
+          onRun={() => void run()}
+          onClear={() => {
+            dispatch({ type: 'clear' })
+            setSkipped(undefined)
+          }}
+        />
 
-          {batch.files.length > 0 && !batch.running ? (
-            <button
-              type="button"
-              onClick={() => dispatch({ type: 'clear' })}
-              className="rounded-[--radius-md] border border-border px-3 py-2.5 font-medium text-fg-secondary text-sm transition-colors hover:bg-bg-sunken"
-            >
-              Clear
-            </button>
-          ) : null}
-        </div>
-
-        {batch.files.length > 0 && !hasWork(builder) ? (
+        {count > 0 && !hasWork(builder) ? (
           <p className="text-fg-muted text-xs">Pick at least one thing to do.</p>
         ) : null}
       </aside>
+    </div>
+  )
+}
+
+/**
+ * The preview, or nothing when no file has been picked yet.
+ *
+ * Shows the first file of a batch: the crop box and the turn are set once and applied
+ * to everything, so previewing each file in turn would suggest otherwise.
+ */
+function PreviewPane({
+  file,
+  count,
+  builder,
+  cropRatio,
+  onSourceLoad,
+  onCropChange,
+}: {
+  file: File | undefined
+  count: number
+  builder: BuilderState
+  cropRatio: number | undefined
+  onSourceLoad: (frame: Frame) => void
+  onCropChange: (crop: CropTransform) => void
+}) {
+  if (!file) return null
+
+  const crop = builder.enabled.crop
+    ? {
+        crop: {
+          value: builder.crop,
+          onChange: onCropChange,
+          ...(cropRatio === undefined ? {} : { ratio: cropRatio }),
+        },
+      }
+    : {}
+
+  return (
+    <ImagePreview
+      file={file}
+      orientation={builder.enabled.rotate ? builder.orientation : UPRIGHT}
+      onSourceLoad={onSourceLoad}
+      caption={count > 1 ? `Previewing ${file.name} — first of ${count}` : file.name}
+      {...crop}
+    />
+  )
+}
+
+/** A titled block in the settings column. */
+function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-[--radius-md] border border-border bg-bg-raised p-3">
+      <p className="mb-2 font-medium text-fg-primary text-sm">{title}</p>
+      {children}
+    </div>
+  )
+}
+
+/** What the batch achieved, plus the one download that covers all of it. */
+function BatchSummary({ files }: { files: readonly BatchFile[] }) {
+  const totals = batchTotals(files)
+  if (totals.done === 0) return null
+
+  const shrank = totals.savedPercent >= 0
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-[--radius-md] border border-border bg-bg-sunken px-3 py-2.5 text-sm">
+      <span className="font-medium text-fg-primary">
+        {totals.done} done{totals.failed > 0 ? `, ${totals.failed} failed` : ''}
+      </span>
+      <span className="text-fg-secondary">
+        {formatBytes(totals.bytesIn)} → {formatBytes(totals.bytesOut)}
+      </span>
+      <span className={shrank ? 'text-success' : 'text-warning'}>
+        {shrank ? `${totals.savedPercent}% smaller` : `${Math.abs(totals.savedPercent)}% larger`}
+      </span>
+
+      {/* One file needs no archive; downloading it directly is what people expect. */}
+      {totals.done > 1 ? (
+        <button
+          type="button"
+          onClick={() => void downloadZip(files)}
+          className="ml-auto rounded-[--radius-sm] bg-brand px-3 py-1 font-medium text-brand-fg text-xs hover:bg-brand-hover"
+        >
+          Download all ({totals.done}) as .zip
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+function RatioPicker({
+  active,
+  onPick,
+  mixedSizes,
+}: {
+  active: number | undefined
+  onPick: (ratio: number | undefined) => void
+  mixedSizes: boolean
+}) {
+  return (
+    <>
+      <div className="flex flex-wrap gap-1">
+        {ASPECT_RATIOS.map((option) => (
+          <button
+            key={option.label}
+            type="button"
+            onClick={() => onPick(option.value)}
+            className={`rounded-[--radius-sm] border px-2 py-1 text-xs ${
+              active === option.value
+                ? 'border-brand bg-brand text-brand-fg'
+                : 'border-border text-fg-secondary hover:bg-bg-sunken'
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      {mixedSizes ? (
+        <p className="mt-2 text-fg-muted text-xs">
+          The area is set on the first image. Smaller images are trimmed to fit.
+        </p>
+      ) : null}
+    </>
+  )
+}
+
+/**
+ * The optional features, as checkboxes.
+ *
+ * Rotate and crop are listed last and carry no fields of their own: their controls
+ * live beside the preview, where the image they act on actually is.
+ */
+function FeatureChecklist({
+  optional,
+  builder,
+  setBuilder,
+  onToggle,
+}: {
+  optional: readonly FeatureInfo[]
+  builder: BuilderState
+  setBuilder: (update: (current: BuilderState) => BuilderState) => void
+  onToggle: (id: FeatureId, enabled: boolean) => void
+}) {
+  const onPreview = (id: FeatureId) => id === 'rotate' || id === 'crop'
+
+  return (
+    <>
+      {optional
+        .filter((feature) => !onPreview(feature.id))
+        .map((feature) => (
+          <FeatureToggle
+            key={feature.id}
+            feature={feature}
+            enabled={builder.enabled[feature.id]}
+            onToggle={(enabled) => onToggle(feature.id, enabled)}
+          >
+            <FeatureFields id={feature.id} builder={builder} setBuilder={setBuilder} />
+          </FeatureToggle>
+        ))}
+
+      {optional
+        .filter((feature) => onPreview(feature.id))
+        .map((feature) => (
+          <FeatureToggle
+            key={feature.id}
+            feature={feature}
+            enabled={builder.enabled[feature.id]}
+            onToggle={(enabled) => onToggle(feature.id, enabled)}
+          />
+        ))}
+    </>
+  )
+}
+
+function RunControls({
+  count,
+  ready,
+  running,
+  onRun,
+  onClear,
+}: {
+  count: number
+  ready: boolean
+  running: boolean
+  onRun: () => void
+  onClear: () => void
+}) {
+  return (
+    <div className="flex gap-2">
+      <button
+        type="button"
+        disabled={!ready}
+        onClick={onRun}
+        className="flex-1 rounded-[--radius-md] bg-brand px-4 py-2.5 font-medium text-brand-fg text-sm transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {running ? 'Working…' : count > 1 ? `Apply to all ${count}` : 'Apply'}
+      </button>
+
+      {count > 0 && !running ? (
+        <button
+          type="button"
+          onClick={onClear}
+          className="rounded-[--radius-md] border border-border px-3 py-2.5 font-medium text-fg-secondary text-sm transition-colors hover:bg-bg-sunken"
+        >
+          Clear
+        </button>
+      ) : null}
     </div>
   )
 }
@@ -305,38 +501,47 @@ function PresetPicker({
   )
 }
 
+/**
+ * The page's own feature, and its controls.
+ *
+ * A converter with no format picker can only ever produce what its preset named, and
+ * a compressor with no slider is a page about quality that will not let you set it.
+ * The primary feature gets the same fields the optional checkbox would reveal, minus
+ * the checkbox — it cannot be switched off.
+ */
 function PrimaryPanel({
   primary,
   builder,
   setBuilder,
-  setRotation,
-  previewFile,
-  onSourceLoad,
 }: {
   primary: FeatureId
   builder: BuilderState
   setBuilder: (update: (current: BuilderState) => BuilderState) => void
-  setRotation: (next: Partial<BuilderState['rotate']>) => void
-  previewFile: File | undefined
-  onSourceLoad: (frame: { width: number; height: number }) => void
 }) {
   const info = featureInfo(primary)
 
   return (
-    <div className="rounded-[--radius-md] border border-brand bg-brand-subtle p-3">
-      <p className="font-medium text-fg-primary text-sm">{info.label}</p>
-      <p className="text-fg-secondary text-xs">{info.hint}</p>
-      <div className="mt-3">
-        <FeatureFields
-          id={primary}
-          builder={builder}
-          setBuilder={setBuilder}
-          setRotation={setRotation}
-          previewFile={previewFile}
-          onSourceLoad={onSourceLoad}
-          forcePrimary
-        />
+    <div className="flex flex-col gap-2 rounded-[--radius-md] border border-brand bg-brand-subtle p-3">
+      <div>
+        <p className="font-medium text-fg-primary text-sm">{info.label}</p>
+        <p className="text-fg-secondary text-xs">{info.hint}</p>
       </div>
+
+      {primary === 'convert' ? (
+        <FormatField
+          value={builder.outputFormat}
+          onChange={(outputFormat) => setBuilder((c) => ({ ...c, outputFormat }))}
+        />
+      ) : null}
+
+      {primary === 'compress' ? (
+        <QualityField
+          value={builder.quality}
+          onChange={(quality) => setBuilder((c) => ({ ...c, quality }))}
+        />
+      ) : null}
+
+      {primary === 'resize' ? <ResizeFields builder={builder} setBuilder={setBuilder} /> : null}
     </div>
   )
 }
@@ -345,168 +550,21 @@ function FeatureFields({
   id,
   builder,
   setBuilder,
-  setRotation,
-  previewFile,
-  onSourceLoad,
-  forcePrimary = false,
 }: {
   id: FeatureId
   builder: BuilderState
   setBuilder: (update: (current: BuilderState) => BuilderState) => void
-  setRotation: (next: Partial<BuilderState['rotate']>) => void
-  previewFile: File | undefined
-  onSourceLoad: (frame: { width: number; height: number }) => void
-  forcePrimary?: boolean
 }) {
   switch (id) {
     case 'resize':
-      return (
-        <div className="flex flex-col gap-2">
-          <div className="flex gap-2">
-            <NumberField
-              label="Width"
-              value={builder.resize.width}
-              onChange={(width) =>
-                setBuilder((c) => ({ ...c, resize: setDimension(c.resize, 'width', width) }))
-              }
-            />
-            <NumberField
-              label="Height"
-              value={builder.resize.height}
-              onChange={(height) =>
-                setBuilder((c) => ({ ...c, resize: setDimension(c.resize, 'height', height) }))
-              }
-            />
-          </div>
-          <label className="text-fg-secondary text-xs">
-            Fit
-            <select
-              value={builder.resize.mode}
-              onChange={(event) =>
-                setBuilder((c) => ({
-                  ...c,
-                  resize: { ...c.resize, mode: event.target.value as typeof c.resize.mode },
-                }))
-              }
-              className="mt-1 w-full rounded-[--radius-sm] border border-border bg-bg-base px-2 py-1.5 text-fg-primary text-sm"
-            >
-              <option value="contain">Fit inside</option>
-              <option value="cover">Fill &amp; crop</option>
-              <option value="exact">Stretch</option>
-            </select>
-          </label>
-          <label className="flex items-center gap-2 text-fg-secondary text-xs">
-            <input
-              type="checkbox"
-              checked={builder.resize.allowUpscale}
-              onChange={(event) =>
-                setBuilder((c) => ({
-                  ...c,
-                  resize: { ...c.resize, allowUpscale: event.target.checked },
-                }))
-              }
-              className="size-3.5 accent-[--color-brand]"
-            />
-            Allow enlarging
-          </label>
-        </div>
-      )
-
-    case 'rotate':
-      return (
-        <div className="flex flex-col gap-2">
-          <div className="flex gap-1">
-            {([0, 90, 180, 270] as const).map((degrees) => (
-              <button
-                key={degrees}
-                type="button"
-                onClick={() => setRotation({ degrees })}
-                className={`flex-1 rounded-[--radius-sm] border px-2 py-1.5 text-xs ${
-                  builder.rotate.degrees === degrees
-                    ? 'border-brand bg-brand text-brand-fg'
-                    : 'border-border text-fg-secondary hover:bg-bg-sunken'
-                }`}
-              >
-                {degrees}°
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-3">
-            {(['flipHorizontal', 'flipVertical'] as const).map((axis) => (
-              <label key={axis} className="flex items-center gap-1.5 text-fg-secondary text-xs">
-                <input
-                  type="checkbox"
-                  checked={builder.rotate[axis]}
-                  onChange={(event) =>
-                    setBuilder((c) => ({
-                      ...c,
-                      rotate: { ...c.rotate, [axis]: event.target.checked },
-                    }))
-                  }
-                  className="size-3.5 accent-[--color-brand]"
-                />
-                {axis === 'flipHorizontal' ? 'Mirror' : 'Flip'}
-              </label>
-            ))}
-          </div>
-        </div>
-      )
-
-    case 'crop':
-      if (!previewFile) {
-        return <p className="text-fg-muted text-xs">Add an image to draw a crop area.</p>
-      }
-      return (
-        <CropEditor
-          file={previewFile}
-          rotation={builder.rotate}
-          rotationEnabled={builder.enabled.rotate}
-          crop={builder.crop}
-          onChange={(crop) => setBuilder((c) => ({ ...c, crop }))}
-          onSourceLoad={onSourceLoad}
-        />
-      )
+      return <ResizeFields builder={builder} setBuilder={setBuilder} />
 
     case 'convert':
       return (
-        <label className="block text-fg-secondary text-xs">
-          Format
-          <select
-            value={builder.outputFormat}
-            onChange={(event) =>
-              setBuilder((c) => ({
-                ...c,
-                outputFormat: event.target.value as typeof c.outputFormat,
-              }))
-            }
-            className="mt-1 w-full rounded-[--radius-sm] border border-border bg-bg-base px-2 py-1.5 text-fg-primary text-sm"
-          >
-            {limits.outputFormats.map((format) => (
-              <option key={format} value={format}>
-                {formatInfo(format).label}
-              </option>
-            ))}
-          </select>
-        </label>
-      )
-
-    case 'compress':
-      // Only the page where compression leads gets a slider. Elsewhere the checkbox
-      // is the whole interaction, which is why hasFields is false for this feature.
-      if (!forcePrimary) return null
-      return (
-        <label className="block text-fg-secondary text-xs">
-          Quality: <span className="font-medium text-fg-primary">{builder.quality}</span>
-          <input
-            type="range"
-            min={1}
-            max={100}
-            value={builder.quality}
-            onChange={(event) => setBuilder((c) => ({ ...c, quality: Number(event.target.value) }))}
-            className="mt-1 w-full accent-[--color-brand]"
-          />
-          <span className="text-fg-muted">Lower means smaller files.</span>
-        </label>
+        <FormatField
+          value={builder.outputFormat}
+          onChange={(outputFormat) => setBuilder((c) => ({ ...c, outputFormat }))}
+        />
       )
 
     default:
@@ -514,16 +572,123 @@ function FeatureFields({
   }
 }
 
+function ResizeFields({
+  builder,
+  setBuilder,
+}: {
+  builder: BuilderState
+  setBuilder: (update: (current: BuilderState) => BuilderState) => void
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex gap-2">
+        <NumberField
+          label="Width"
+          value={builder.resize.width}
+          onChange={(width) =>
+            setBuilder((c) => ({ ...c, resize: setDimension(c.resize, 'width', width) }))
+          }
+        />
+        <NumberField
+          label="Height"
+          value={builder.resize.height}
+          onChange={(height) =>
+            setBuilder((c) => ({ ...c, resize: setDimension(c.resize, 'height', height) }))
+          }
+        />
+      </div>
+      <label className="text-fg-secondary text-xs">
+        Fit
+        <select
+          value={builder.resize.mode}
+          onChange={(event) =>
+            setBuilder((c) => ({
+              ...c,
+              resize: { ...c.resize, mode: event.target.value as typeof c.resize.mode },
+            }))
+          }
+          className="mt-1 w-full rounded-[--radius-sm] border border-border bg-bg-base px-2 py-1.5 text-fg-primary text-sm"
+        >
+          <option value="contain">Fit inside</option>
+          <option value="cover">Fill &amp; crop</option>
+          <option value="exact">Stretch</option>
+        </select>
+      </label>
+      <label className="flex items-center gap-2 text-fg-secondary text-xs">
+        <input
+          type="checkbox"
+          checked={builder.resize.allowUpscale}
+          onChange={(event) =>
+            setBuilder((c) => ({
+              ...c,
+              resize: { ...c.resize, allowUpscale: event.target.checked },
+            }))
+          }
+          className="size-3.5 accent-[--color-brand]"
+        />
+        Allow enlarging
+      </label>
+    </div>
+  )
+}
+
+function FormatField({
+  value,
+  onChange,
+}: {
+  value: ImageFormat
+  onChange: (format: ImageFormat) => void
+}) {
+  return (
+    <label className="block text-fg-secondary text-xs">
+      Format
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value as ImageFormat)}
+        className="mt-1 w-full rounded-[--radius-sm] border border-border bg-bg-base px-2 py-1.5 text-fg-primary text-sm"
+      >
+        {limits.outputFormats.map((format) => (
+          <option key={format} value={format}>
+            {formatInfo(format).label}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
 /**
- * Clearing a dimension omits it rather than setting it to undefined, so an empty
- * field means "derive this from the aspect ratio" — which is what the engine expects
- * and what the placeholder promises.
+ * The quality slider, shown only where compression is the page's whole point.
+ *
+ * Everywhere else compression is a bare checkbox on purpose: tuning quality is a
+ * different, more advanced intent, and a slider next to every other option invites
+ * fiddling with a number most people have no way to judge.
+ */
+function QualityField({ value, onChange }: { value: number; onChange: (quality: number) => void }) {
+  return (
+    <label className="block text-fg-secondary text-xs">
+      Quality: <span className="font-medium text-fg-primary">{value}</span>
+      <input
+        type="range"
+        min={QUALITY_RANGE.min}
+        max={QUALITY_RANGE.max}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="mt-1 w-full accent-[--color-brand]"
+      />
+    </label>
+  )
+}
+
+/**
+ * Clearing a dimension omits it rather than setting it undefined, so an empty field
+ * means "derive this from the aspect ratio" — what the engine expects.
  */
 function setDimension(
-  resize: ResizeTransform,
+  resize: BuilderState['resize'],
   axis: 'width' | 'height',
   value: number | undefined,
-): ResizeTransform {
+): BuilderState['resize'] {
   const width = axis === 'width' ? value : resize.width
   const height = axis === 'height' ? value : resize.height
 
@@ -563,10 +728,6 @@ function NumberField({
   )
 }
 
-/**
- * Warns before converting away transparency, rather than silently flattening it to
- * black — which is the single most surprising thing an image converter can do.
- */
 function TransparencyWarning({
   builder,
   files,
@@ -577,10 +738,9 @@ function TransparencyWarning({
   if (!builder.enabled.convert) return null
 
   const atRisk = files.some((entry) => {
-    const source = entry.file.type === 'image/png' ? 'png' : undefined
+    const source = formatFromMimeType(entry.file.type)
     return source ? losesTransparency(source, builder.outputFormat) : false
   })
-
   if (!atRisk) return null
 
   return (
@@ -591,13 +751,6 @@ function TransparencyWarning({
   )
 }
 
-/**
- * Quality has no effect on a lossless format, so saying so beats letting someone drag
- * a slider that does nothing.
- *
- * Only fires when the output really will be lossless: either they picked a lossless
- * format, or they kept the source format and every file they loaded is lossless.
- */
 function LosslessQualityNote({
   builder,
   files,
@@ -613,7 +766,6 @@ function LosslessQualityNote({
         const source = formatFromMimeType(entry.file.type)
         return source ? !formatInfo(source).lossy : false
       })
-
   if (!outputIsLossless) return null
 
   return (
@@ -662,27 +814,19 @@ async function downloadZip(files: readonly BatchFile[]): Promise<void> {
   for (const entry of files) {
     if (entry.status.kind !== 'done') continue
 
-    // Two source files can converge on one output name once extensions change, so
-    // de-duplicate rather than letting one silently overwrite the other.
+    // Two sources can converge on one output name once extensions change.
     let name = entry.status.output.fileName
     let suffix = 1
     while (used.has(name)) {
-      const dot = name.lastIndexOf('.')
+      const dot = entry.status.output.fileName.lastIndexOf('.')
       name = `${entry.status.output.fileName.slice(0, dot)}-${suffix}${entry.status.output.fileName.slice(dot)}`
       suffix += 1
     }
     used.add(name)
-
     entries[name] = new Uint8Array(await entry.status.output.blob.arrayBuffer())
   }
 
-  // Store-only: these are already-compressed images, so deflating them again costs
-  // time and saves nothing.
+  // Store-only: these are already-compressed images.
   const zipped = zipSync(entries, { level: 0 })
-
-  // fflate types its output as possibly SharedArrayBuffer-backed, which Blob will not
-  // accept. We never enable SharedArrayBuffer (ADR-0002), so copying into a plain
-  // array is exact rather than lossy, and avoids a cast that would outlive the reason
-  // for it.
   downloadBlob(new Blob([Uint8Array.from(zipped)], { type: 'application/zip' }), 'imghub.zip')
 }

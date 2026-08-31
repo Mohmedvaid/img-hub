@@ -71,11 +71,26 @@ const dot = (x, y, w, h) => {
   const d = Math.hypot(x - w / 2, y - h / 2)
   return [220, 40, 90, d < Math.min(w, h) / 2.5 ? 255 : 0]
 }
+/**
+ * Four unmistakable quadrants, so an orientation can be proved by sampling corners
+ * rather than by trusting the reported dimensions. A 180° turn and a double flip both
+ * keep the dimensions and differ only in where the colours end up.
+ */
+const quadrants = (x, y, w, h) => {
+  const right = x >= w / 2
+  const bottom = y >= h / 2
+  if (!right && !bottom) return [220, 40, 40, 255] // top-left: red
+  if (right && !bottom) return [40, 180, 60, 255] // top-right: green
+  if (!right && bottom) return [40, 80, 220, 255] // bottom-left: blue
+  return [230, 200, 40, 255] // bottom-right: yellow
+}
+
 const dir = process.argv[2]
 mkdirSync(dir, { recursive: true })
 png(`${dir}/photo.png`, 1200, 900, photo)
 png(`${dir}/wide.png`, 1600, 400, photo)
 png(`${dir}/transparent.png`, 400, 400, dot)
+png(`${dir}/corners.png`, 400, 200, quadrants)
 writeFileSync(
   `${dir}/broken.png`,
   Buffer.concat([
@@ -83,4 +98,6 @@ writeFileSync(
     Buffer.from('garbage'.repeat(50)),
   ]),
 )
+// A file that is emphatically not an image, for the intake path.
+writeFileSync(`${dir}/notes.pdf`, Buffer.from('%PDF-1.7\n% not an image\n'))
 console.log('fixtures written')

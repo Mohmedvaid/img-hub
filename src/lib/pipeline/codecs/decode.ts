@@ -65,7 +65,7 @@ export async function decodeImage(
   if (width > limits.maxWidth || height > limits.maxHeight) {
     bitmap.close()
     return fail('DIMENSIONS_TOO_LARGE', {
-      message: `This image is ${width}×${height}px. The maximum is ${limits.maxWidth.toLocaleString()}×${limits.maxHeight.toLocaleString()}px.`,
+      message: `This image is ${width.toLocaleString()}×${height.toLocaleString()}px. The maximum is ${limits.maxWidth.toLocaleString()}×${limits.maxHeight.toLocaleString()}px.`,
       stage: 'decode',
     })
   }

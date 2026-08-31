@@ -52,7 +52,7 @@ export default async function ToolPage({ params }: ToolPageProps) {
       </header>
 
       <ErrorBoundary label="toolkit">
-        <ImageToolkit primary={tool.primary} />
+        <ImageToolkit primary={tool.primary} preset={tool.preset} />
       </ErrorBoundary>
 
       <ToolPageContent tool={tool} />
