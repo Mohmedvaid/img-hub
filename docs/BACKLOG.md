@@ -485,17 +485,26 @@ before it can say anything. It failed about two runs in five. It now waits.
 
 ### P5-03 · Deploy to Cloudflare
 
-**Status:** `todo` · **Phase:** 5
+**Status:** `todo` — prepared; needs Mohmed's Cloudflare account · **Phase:** 5
 
 Workers with static assets, on the free `*.workers.dev` subdomain. No custom domain
 yet: there is no name, and one is not needed while indexing is off.
 
-Done when: the site is reachable over HTTPS, `pnpm smoke` and `pnpm audit:seo` both
-pass against that URL, and response headers match `public/_headers`.
+`wrangler.jsonc` and a pinned `wrangler` devDependency are in place, so the deploy is
+`pnpm deploy:cf` once the CLI is authenticated. The config declares no Worker script —
+this deployment is the contents of `out/` and nothing else. `html_handling` serves
+`/about` from `about.html` without a redirect, and `not_found_handling` returns a real
+404 rather than a soft one.
+
+Everything up to authentication is done. Running it needs Mohmed's account.
+
+Done when: the site is reachable over HTTPS on `*.workers.dev`, `pnpm smoke` and
+`pnpm audit:seo` both pass against that URL, and the response headers match
+`out/_headers`.
 
 ### P5-04 · Cloudflare Web Analytics
 
-**Status:** `todo` · **Phase:** 5
+**Status:** `done` · **Phase:** 5
 
 Replaces the Plausible wiring. Free, cookieless, no consent banner, and it reports
 Core Web Vitals, which is what `P3-02` needs. `config/site.ts` already gates analytics
@@ -503,6 +512,20 @@ behind an env var; the CSP allowlist and the beacon change.
 
 Done when: analytics loads only when configured, the CSP names Cloudflare rather than
 Plausible, and the privacy policy's analytics section appears with it.
+
+`site.analytics.domain` became `site.analytics.token`, read from
+`NEXT_PUBLIC_ANALYTICS_TOKEN` — Cloudflare identifies a site by beacon token, not by
+hostname. The beacon needs two hosts in the CSP, not one: `static.cloudflareinsights.com`
+serves the script and `cloudflareinsights.com` receives the measurements. Missing
+either makes it fail silently, which is how this gets shipped broken.
+
+Nothing had ever rendered the analytics script; the flag and the CSP entry existed
+without a consumer. `src/components/Analytics.tsx` closes that, and returns null when
+no token is set — which is what makes the privacy policy's claim that this site runs
+no third-party scripts literally true rather than aspirational.
+
+Still needed: the beacon token from the Cloudflare dashboard, which only exists once
+the site is deployed. `P5-03` first.
 
 ### P5-05 · Domain, then indexing
 

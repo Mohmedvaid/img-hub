@@ -1,0 +1,27 @@
+{
+  // Cloudflare Workers with static assets — see docs/adr/0007-cloudflare-static-hosting.md.
+  //
+  // There is no Worker script. Every route prerenders, so this deployment is the
+  // contents of `out/` and nothing else; Cloudflare serves them directly. If server
+  // code is ever needed, a `main` entry point is added here and nothing else moves.
+  //
+  // Deploy with `pnpm deploy:cf`, which builds first. `out/_headers` is generated
+  // by that build and is what carries the CSP in production.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "img-hub",
+  "compatibility_date": "2026-08-31",
+
+  "assets": {
+    "directory": "./out",
+
+    // Serve `/about` from `about.html` without redirecting to `/about/`, and return a
+    // real 404 for anything unknown. A soft 404 tells a crawler a missing page is
+    // real content.
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}

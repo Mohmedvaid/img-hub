@@ -9,16 +9,19 @@ file is a view, not a source. If the two disagree, the backlog is right.
 
 | | Count |
 |---|---|
-| Done | 36 |
-| In progress | 3 (Phase 5, launch) |
+| Done | 37 |
+| In progress | 2 (Phase 5, launch) |
 | To do (carried) | 2 reverted with reasons, 1 blocked on Mohmed |
 | Blocked | 0 |
 
 ## In progress
 
-**Phase 5, getting the site live.** `P5-01` (about, contact, privacy) and `P5-02`
-(static export, generated headers) are done. Remaining: the Cloudflare deploy,
-swapping Plausible for Cloudflare Web Analytics, and finally the domain.
+**Phase 5, getting the site live.** `P5-01` (about, contact, privacy), `P5-02`
+(static export, generated headers) and `P5-04` (Cloudflare Web Analytics) are done.
+
+`P5-03`, the deploy itself, is prepared as far as it can be from here: `wrangler.jsonc`
+is written and `pnpm deploy:cf` builds and ships. Running it needs Mohmed's Cloudflare
+account. `P5-05` is the domain, and waits on a product name.
 
 `pnpm build` now emits `out/` and `pnpm start` serves it through
 `scripts/serve.mjs` with the generated `out/_headers`, so smoke, the SEO audit and
@@ -60,7 +63,8 @@ pnpm smoke                      # 19 browser checks; needs the server running
 Then read `docs/BACKLOG.md` for what is left. The toolkit itself is feature-complete
 for v1 — what remains is launch work, and most of it needs a decision rather than code:
 
-1. **`P5-03` deploy** — the build already emits what Cloudflare wants. Hosting is
+1. **`P5-03` deploy** — `pnpm deploy:cf` is wired; it needs an authenticated wrangler.
+   Hosting is
    settled in [ADR-0007](adr/0007-cloudflare-static-hosting.md): Cloudflare, static,
    free, ads permitted. Vercel is out because its Hobby plan prohibits AdSense
 2. **`P5-05` domain** — blocked on a product name. It, indexing and the AdSense

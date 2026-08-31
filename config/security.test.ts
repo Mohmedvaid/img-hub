@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { securityHeaders } from './security'
 
 const header = (key: string) =>
@@ -98,5 +98,64 @@ describe('the rest of the header set', () => {
       expect(entry.key.length).toBeGreaterThan(0)
       expect(entry.value.length).toBeGreaterThan(0)
     }
+  })
+})
+
+/**
+ * The policy is assembled from config, so the interesting cases are the ones this
+ * build does not exercise. `site` reads env once at load, so each needs a fresh
+ * module tree.
+ */
+async function policyWith(env: Record<string, string>) {
+  vi.resetModules()
+  for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value)
+  const { securityHeaders: headers } = await import('./security')
+  return headers.find((entry) => entry.key === 'Content-Security-Policy')?.value ?? ''
+}
+
+describe('hosts appear only under their feature flag', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.resetModules()
+  })
+
+  it('allows the analytics beacon and its endpoint once a token is set', async () => {
+    // Two different hosts: one serves beacon.min.js, the other receives the
+    // measurements. Missing either makes it fail silently.
+    const policy = await policyWith({ NEXT_PUBLIC_ANALYTICS_TOKEN: 'abc123' })
+
+    expect(policy).toContain('script-src')
+    expect(policy).toMatch(/script-src[^;]*https:\/\/static\.cloudflareinsights\.com/)
+    expect(policy).toMatch(/connect-src[^;]*https:\/\/cloudflareinsights\.com/)
+  })
+
+  it('still permits no ad host when only analytics is on', async () => {
+    const policy = await policyWith({ NEXT_PUBLIC_ANALYTICS_TOKEN: 'abc123' })
+
+    expect(policy).not.toContain('googlesyndication')
+  })
+
+  it('allows the ad hosts once a publisher ID is set, and frames them', async () => {
+    const policy = await policyWith({ NEXT_PUBLIC_ADSENSE_CLIENT: 'ca-pub-123' })
+
+    expect(policy).toMatch(/script-src[^;]*googlesyndication/)
+    expect(policy).toMatch(/frame-src[^;]*doubleclick/)
+  })
+
+  it('never isolates the page even with every feature on', async () => {
+    // The combination that would be most tempting to "just make work".
+    vi.resetModules()
+    vi.stubEnv('NEXT_PUBLIC_ADSENSE_CLIENT', 'ca-pub-123')
+    vi.stubEnv('NEXT_PUBLIC_ANALYTICS_TOKEN', 'abc123')
+    const { securityHeaders: headers } = await import('./security')
+
+    expect(
+      headers.map((entry) => entry.key.toLowerCase()).filter((k) => k.startsWith('cross-origin-')),
+    ).toEqual([])
+  })
+
+  it('blocks framing entirely while ads are off', async () => {
+    const policy = await policyWith({})
+    expect(policy).toMatch(/frame-src 'none'/)
   })
 })

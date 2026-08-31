@@ -34,8 +34,21 @@ Phase 5, getting the site live. Not tagged yet.
 - **`scripts/serve.mjs`**, a static server that applies `out/_headers`. `next start`
   does not work with an export, and a plain file server would have left the smoke
   suite and SEO audit checking a build with no security headers.
-- **`config/security.test.ts`** — 19 assertions on the header set, including that
-  `connect-src` stays `'self'`, which is what makes the privacy claim enforced.
+- **`config/security.test.ts`** — 24 assertions on the header set, including that
+  `connect-src` stays `'self'` while analytics is off, which is what makes the privacy
+  claim enforced, and that no combination of feature flags ever isolates the page.
+- **Cloudflare Web Analytics** (`P5-04`), replacing the Plausible wiring. Cookieless,
+  no consent banner, free at any traffic level, and it reports Core Web Vitals.
+  `src/components/Analytics.tsx` renders nothing without a token, so a build with none
+  loads no third-party script at all.
+- **`wrangler.jsonc` and `pnpm deploy:cf`** (`P5-03`, prepared). The deploy declares no
+  Worker script: it is the contents of `out/` and nothing else.
+
+### Changed
+- `site.analytics.domain` is now `site.analytics.token`, from
+  `NEXT_PUBLIC_ANALYTICS_TOKEN`. Cloudflare identifies a site by beacon token rather
+  than hostname. The CSP needs two hosts for it, not one: one serves the script, the
+  other receives measurements, and missing either fails silently.
 
 ### Fixed
 - `scripts/smoke.mjs` read the DOM immediately after selecting a file, racing the byte

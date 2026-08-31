@@ -2,6 +2,7 @@ import { brand } from '@config/brand'
 import { site } from '@config/site'
 import { cssVariables, theme } from '@config/theme'
 import type { Metadata, Viewport } from 'next'
+import { Analytics } from '@/components/Analytics'
 import { Footer } from '@/components/Footer'
 import './globals.css'
 
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <Footer />
+        <Analytics />
       </body>
     </html>
   )

@@ -50,11 +50,19 @@ export const site = {
     },
   },
 
+  /**
+   * Cloudflare Web Analytics. Cookieless, no fingerprinting, no cross-site tracking,
+   * so it needs no consent banner — and it reports Core Web Vitals, which is what the
+   * P3-02 gate wants. Chosen over Plausible on price: free at any traffic level.
+   *
+   * The trade is 30-day retention and no funnels or per-user journeys. That is the
+   * cost of having no client-side state to follow anyone with.
+   */
   analytics: {
-    /** Empty disables analytics entirely. */
-    domain: env('NEXT_PUBLIC_ANALYTICS_DOMAIN') ?? '',
+    /** The beacon token from the Cloudflare dashboard. Empty disables analytics entirely. */
+    token: env('NEXT_PUBLIC_ANALYTICS_TOKEN') ?? '',
     get enabled(): boolean {
-      return this.domain.length > 0
+      return this.token.length > 0
     },
   },
 
