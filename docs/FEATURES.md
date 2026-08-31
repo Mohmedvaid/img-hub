@@ -109,6 +109,29 @@ stretches.
 
 ---
 
+## Crop
+
+**Status:** Shipped in v0.2 · **Tickets:** P1-10
+
+Drag a selection over a preview of the first file. Corner handles resize it, the body
+drags it, and arrow keys nudge it (shift for larger steps). Aspect presets constrain
+it around wherever it already is.
+
+The box is measured against the **rotated** image, which is what the preview shows.
+Changing rotation moves the box with it, so the region stays selected rather than
+jumping — see ADR-0006.
+
+**Acceptance**
+- The seeded box is a centred 80% of the frame, so handles are immediately grabbable
+- Output dimensions equal the box exactly
+- An aspect preset produces that ratio and stays inside the frame
+- Rotating after drawing keeps the same region selected
+- A box extending past an edge is trimmed rather than failing; only a box entirely
+  outside the image is an error
+- In a batch, the box is drawn on the first file and clamped for the rest
+
+---
+
 ## Tool landing pages
 
 **Status:** Phase 3 · **Tickets:** not yet written

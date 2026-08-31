@@ -53,7 +53,7 @@ const FEATURES: Record<FeatureId, FeatureInfo> = {
     hint: 'Cut the image down to a selected area.',
     hasFields: true,
     target: { kind: 'transform', transform: 'crop' },
-    available: false,
+    available: true,
   },
   rotate: {
     id: 'rotate',

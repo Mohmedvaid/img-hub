@@ -78,7 +78,7 @@ landscape sources; `allowUpscale: false` leaves a smaller image untouched; downs
 by more than 2x does not alias visibly.
 
 ### P1-10 · Crop rectangle remap on rotation change
-**Status:** todo · **Blocked by:** crop UI (v0.2)
+**Status:** done
 
 Crop coordinates are in post-rotation space (ADR-0006). When the user changes rotation
 after drawing a crop box, the stored rectangle must be remapped into the new

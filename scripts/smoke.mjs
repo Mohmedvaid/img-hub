@@ -121,6 +121,54 @@ check(
   rows.join(' | ').slice(0, 150),
 )
 
+console.log('\n=== crop selects exactly the region drawn ===')
+await page.goto(`${BASE}/crop-image`, { waitUntil: 'networkidle' })
+await page.setInputFiles('input[type=file]', [`${SP}/photo.png`])
+await page.waitForTimeout(700)
+const seeded = await page.getByText(/px at/).first().textContent()
+check(
+  'seeds a centred 80% box on a 1200x900 source',
+  /960 × 720 px at 120, 90/.test(seeded),
+  seeded,
+)
+await page.getByRole('button', { name: 'Run' }).click()
+await page.waitForFunction(
+  () =>
+    [...document.querySelectorAll('li')].every(
+      (li) => !/waiting|Reading|Editing|Saving/.test(li.textContent),
+    ),
+  null,
+  { timeout: 60000 },
+)
+rows = (await page.locator('li').allTextContents()).map((t) => t.replace(/\s+/g, ' ').trim())
+check('output matches the drawn box', /960×720/.test(rows[0]), rows[0])
+
+console.log('\n=== P1-10: the crop box follows a rotation change ===')
+// Without the remap the box keeps stale coordinates and silently crops a different
+// region — the failure mode ADR-0006 exists to prevent.
+await page.goto(`${BASE}/crop-image`, { waitUntil: 'networkidle' })
+await page.setInputFiles('input[type=file]', [`${SP}/wide.png`])
+await page.waitForTimeout(700)
+await tick('Rotate & flip')
+await page.waitForTimeout(200)
+await page.getByRole('button', { name: '90°', exact: true }).click()
+await page.waitForTimeout(300)
+const moved = await page.getByText(/px at/).first().textContent()
+// 1600x400 seeds 1280x320 at 160,40. A quarter turn into a 400x1600 frame puts it
+// at 40,160 with the axes swapped.
+check('box swaps axes and repositions', /320 × 1280 px at 40, 160/.test(moved), moved)
+await page.getByRole('button', { name: 'Run' }).click()
+await page.waitForFunction(
+  () =>
+    [...document.querySelectorAll('li')].every(
+      (li) => !/waiting|Reading|Editing|Saving/.test(li.textContent),
+    ),
+  null,
+  { timeout: 60000 },
+)
+rows = (await page.locator('li').allTextContents()).map((t) => t.replace(/\s+/g, ' ').trim())
+check('rotated crop output is 320x1280', /320×1280/.test(rows[0]), rows[0])
+
 console.log('\n=== lossless quality note ===')
 await page.goto(`${BASE}/compress-image`, { waitUntil: 'networkidle' })
 await page.setInputFiles('input[type=file]', [`${SP}/photo.png`])

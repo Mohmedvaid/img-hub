@@ -169,6 +169,30 @@ function standaloneContent(tool: ToolDefinition): ToolContent {
         ],
       }
 
+    case 'crop':
+      return {
+        intro:
+          'Cut an image down to the part you want. Drag the corners to set the area, or pick a ratio like square or 16:9 and the box snaps to it. The format stays the same unless you ask to change it, and you can resize or compress the result in the same pass.',
+        faq: [
+          {
+            question: 'Can I crop to an exact aspect ratio?',
+            answer:
+              'Yes. Choose Square, 4:3, 3:2, 16:9 or 9:16 and the selection is constrained to that shape around wherever you had it. Free lets you drag any shape you like.',
+          },
+          {
+            question: 'What happens if I rotate and crop at the same time?',
+            answer:
+              'The crop area is measured against the rotated image, which is what you see in the preview, so the region you selected is the region you get. Change the rotation after drawing a box and the box moves with it rather than jumping somewhere else.',
+          },
+          {
+            question: 'Can I crop several images at once?',
+            answer:
+              'Yes. The area is drawn on the first image and applied to the rest. Where another image is smaller, the area is trimmed to fit rather than failing — so this works best on images of the same size.',
+          },
+          ...shared,
+        ],
+      }
+
     default:
       return { intro: tool.metaDescription, faq: shared }
   }

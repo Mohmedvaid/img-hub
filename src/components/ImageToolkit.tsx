@@ -10,11 +10,21 @@ import type { ResizeTransform } from '@/lib/pipeline/operations/resize'
 import { formatBytes } from '@/lib/pipeline/runner'
 import { PipelineClient } from '@/lib/pipeline/worker/client'
 import { type BatchFile, batchReducer, batchTotals, initialBatch } from '@/lib/ui/batch'
+import { remapCrop } from '@/lib/ui/cropGeometry'
 import { type BuilderState, hasWork, initialBuilderState, toPipeline } from '@/lib/ui/pipelineState'
+import { CropEditor } from './CropEditor'
 import { DropZone } from './DropZone'
 import { ErrorBoundary } from './ErrorBoundary'
 import { FeatureToggle } from './FeatureToggle'
 import { ResultsList } from './ResultsList'
+
+/** The identity orientation, used as the "from" when rotation is switched off. */
+const UNROTATED = {
+  kind: 'rotate',
+  degrees: 0,
+  flipHorizontal: false,
+  flipVertical: false,
+} as const
 
 type ImageToolkitProps = {
   /** The feature this page is about. Always on, never a checkbox. Omit on the home builder. */
@@ -24,6 +34,7 @@ type ImageToolkitProps = {
 export function ImageToolkit({ primary }: ImageToolkitProps) {
   const [batch, dispatch] = useReducer(batchReducer, initialBatch)
   const [builder, setBuilder] = useState<BuilderState>(() => initialBuilderState(primary))
+  const [sourceFrame, setSourceFrame] = useState<{ width: number; height: number }>()
   const clientRef = useRef<PipelineClient>(null)
 
   // One worker for the page's lifetime. Created lazily so nothing is spawned for a
@@ -39,9 +50,64 @@ export function ImageToolkit({ primary }: ImageToolkitProps) {
     [primary],
   )
 
-  const setEnabled = useCallback((id: FeatureId, enabled: boolean) => {
-    setBuilder((current) => ({ ...current, enabled: { ...current.enabled, [id]: enabled } }))
-  }, [])
+  /**
+   * Applies any change that alters the image's orientation, moving the crop box with
+   * it — P1-10.
+   *
+   * Crop coordinates are in post-rotation space (ADR-0006), so turning the image
+   * without moving the box silently selects a different region. Two separate things
+   * change orientation: editing the rotation, and switching the rotate feature on or
+   * off (its default is a quarter turn, so toggling it is a real change). Both route
+   * through here so neither can skip the remap.
+   */
+  const changeOrientation = useCallback(
+    (change: { enabled?: boolean; rotate?: Partial<BuilderState['rotate']> }) => {
+      setBuilder((current) => {
+        const nextEnabled = change.enabled ?? current.enabled.rotate
+        const nextRotate = { ...current.rotate, ...change.rotate }
+
+        const next: BuilderState = {
+          ...current,
+          rotate: nextRotate,
+          enabled: { ...current.enabled, rotate: nextEnabled },
+        }
+
+        const from = current.enabled.rotate ? current.rotate : UNROTATED
+        const to = nextEnabled ? nextRotate : UNROTATED
+
+        const unchanged =
+          from.degrees === to.degrees &&
+          from.flipHorizontal === to.flipHorizontal &&
+          from.flipVertical === to.flipVertical
+
+        if (unchanged || !current.enabled.crop || current.crop.width === 0 || !sourceFrame) {
+          return next
+        }
+
+        return {
+          ...next,
+          crop: { kind: 'crop', ...remapCrop(current.crop, sourceFrame, from, to) },
+        }
+      })
+    },
+    [sourceFrame],
+  )
+
+  const setEnabled = useCallback(
+    (id: FeatureId, enabled: boolean) => {
+      if (id === 'rotate') {
+        changeOrientation({ enabled })
+        return
+      }
+      setBuilder((current) => ({ ...current, enabled: { ...current.enabled, [id]: enabled } }))
+    },
+    [changeOrientation],
+  )
+
+  const setRotation = useCallback(
+    (rotate: Partial<BuilderState['rotate']>) => changeOrientation({ rotate }),
+    [changeOrientation],
+  )
 
   const run = useCallback(async () => {
     const client = clientRef.current
@@ -73,6 +139,14 @@ export function ImageToolkit({ primary }: ImageToolkitProps) {
     dispatch({ type: 'finish' })
   }, [batch.files, builder])
 
+  // Crop is drawn against the first file and clamped for the rest, so a batch of
+  // mixed dimensions still works rather than being refused.
+  const previewFile = batch.files[0]?.file
+  const onSourceLoad = useCallback((frame: { width: number; height: number }) => {
+    setSourceFrame((current) =>
+      current?.width === frame.width && current?.height === frame.height ? current : frame,
+    )
+  }, [])
   const totals = batchTotals(batch.files)
   const ready = batch.files.length > 0 && hasWork(builder) && !batch.running
 
@@ -122,7 +196,14 @@ export function ImageToolkit({ primary }: ImageToolkitProps) {
 
       <aside className="flex w-full shrink-0 flex-col gap-3 lg:w-80">
         {primary ? (
-          <PrimaryPanel primary={primary} builder={builder} setBuilder={setBuilder} />
+          <PrimaryPanel
+            primary={primary}
+            builder={builder}
+            setBuilder={setBuilder}
+            setRotation={setRotation}
+            previewFile={previewFile}
+            onSourceLoad={onSourceLoad}
+          />
         ) : (
           <p className="font-medium text-fg-primary text-sm">What should we do?</p>
         )}
@@ -134,7 +215,14 @@ export function ImageToolkit({ primary }: ImageToolkitProps) {
             enabled={builder.enabled[feature.id]}
             onToggle={(enabled) => setEnabled(feature.id, enabled)}
           >
-            <FeatureFields id={feature.id} builder={builder} setBuilder={setBuilder} />
+            <FeatureFields
+              id={feature.id}
+              builder={builder}
+              setBuilder={setBuilder}
+              setRotation={setRotation}
+              previewFile={previewFile}
+              onSourceLoad={onSourceLoad}
+            />
           </FeatureToggle>
         ))}
 
@@ -174,10 +262,16 @@ function PrimaryPanel({
   primary,
   builder,
   setBuilder,
+  setRotation,
+  previewFile,
+  onSourceLoad,
 }: {
   primary: FeatureId
   builder: BuilderState
   setBuilder: (update: (current: BuilderState) => BuilderState) => void
+  setRotation: (next: Partial<BuilderState['rotate']>) => void
+  previewFile: File | undefined
+  onSourceLoad: (frame: { width: number; height: number }) => void
 }) {
   const info = featureInfo(primary)
 
@@ -186,7 +280,15 @@ function PrimaryPanel({
       <p className="font-medium text-fg-primary text-sm">{info.label}</p>
       <p className="text-fg-secondary text-xs">{info.hint}</p>
       <div className="mt-3">
-        <FeatureFields id={primary} builder={builder} setBuilder={setBuilder} forcePrimary />
+        <FeatureFields
+          id={primary}
+          builder={builder}
+          setBuilder={setBuilder}
+          setRotation={setRotation}
+          previewFile={previewFile}
+          onSourceLoad={onSourceLoad}
+          forcePrimary
+        />
       </div>
     </div>
   )
@@ -196,11 +298,17 @@ function FeatureFields({
   id,
   builder,
   setBuilder,
+  setRotation,
+  previewFile,
+  onSourceLoad,
   forcePrimary = false,
 }: {
   id: FeatureId
   builder: BuilderState
   setBuilder: (update: (current: BuilderState) => BuilderState) => void
+  setRotation: (next: Partial<BuilderState['rotate']>) => void
+  previewFile: File | undefined
+  onSourceLoad: (frame: { width: number; height: number }) => void
   forcePrimary?: boolean
 }) {
   switch (id) {
@@ -265,7 +373,7 @@ function FeatureFields({
               <button
                 key={degrees}
                 type="button"
-                onClick={() => setBuilder((c) => ({ ...c, rotate: { ...c.rotate, degrees } }))}
+                onClick={() => setRotation({ degrees })}
                 className={`flex-1 rounded-[--radius-sm] border px-2 py-1.5 text-xs ${
                   builder.rotate.degrees === degrees
                     ? 'border-brand bg-brand text-brand-fg'
@@ -295,6 +403,21 @@ function FeatureFields({
             ))}
           </div>
         </div>
+      )
+
+    case 'crop':
+      if (!previewFile) {
+        return <p className="text-fg-muted text-xs">Add an image to draw a crop area.</p>
+      }
+      return (
+        <CropEditor
+          file={previewFile}
+          rotation={builder.rotate}
+          rotationEnabled={builder.enabled.rotate}
+          crop={builder.crop}
+          onChange={(crop) => setBuilder((c) => ({ ...c, crop }))}
+          onSourceLoad={onSourceLoad}
+        />
       )
 
     case 'convert':

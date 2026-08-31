@@ -119,9 +119,7 @@ const STANDALONE_TOOLS: readonly ToolDefinition[] = [
   },
   {
     slug: 'crop-image',
-    // Stays dark until the interactive selection UI ships (v0.2). The engine works,
-    // but a page that cannot do what its title promises is worse than no page.
-    status: 'planned',
+    status: 'live',
     primary: 'crop',
     title: 'Crop images',
     metaTitle: 'Crop Images Online — Free, Private, No Upload',
