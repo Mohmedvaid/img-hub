@@ -134,6 +134,19 @@ pnpm audit:vitals   # LCP/CLS on a throttled mobile profile
 What is left on them needs a real domain or post-launch field data, not more code.
 `P3-03` AdSense is the only item blocked on Mohmed — it needs a publisher ID.
 
+## Releases
+
+Tagged in git with an entry in [CHANGELOG.md](../CHANGELOG.md). Backfilled on
+2026-08-31, after four phases had merged without either.
+
+| Tag | Phase |
+|---|---|
+| `v0.4.0` | Editor UX |
+| `v0.3.0` | Pre-launch gates |
+| `v0.2.0` | Full toolkit and the tool pages |
+| `v0.1.0` | Working MVP |
+| `v0.0.1` | Foundation |
+
 ## Health
 
 | Check | State |
