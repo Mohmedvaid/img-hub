@@ -142,14 +142,26 @@ recovering does not lose already-processed output.
 ---
 
 ### P1-11 · Preserve the ICC colour profile
-**Status:** todo
+**Status:** closed — not doing, option removed
 
-`MetadataTransform.keepColorProfile` is honoured in the type but not yet in the
-encoders, so the profile is currently always dropped. Visible as a colour shift on
-wide-gamut images.
+Investigated and closed. Neither of the two halves is possible with this stack:
 
-Done when: a P3-tagged source keeps its profile with the option on, and loses it with
-the option off.
+- **Decoding** applies the source profile and converts to sRGB. `createImageBitmap`
+  offers no mode that hands back wide-gamut pixels plus the original profile.
+- **Encoding** cannot write one. No jSquash encoder — JPEG, WebP or PNG — exposes an
+  ICC parameter at all.
+
+So `keepColorProfile` was a toggle promising something the stack cannot do, and it has
+been removed rather than left as a false option. Converting to sRGB is also the
+correct default for images headed to the web, where sRGB is what browsers assume; the
+loss only matters for print and pro photography workflows, which are not the audience.
+
+Removing it needed no schema bump. The field was never honoured, so ignoring it in
+old payloads changes no output — asserted by a decode test using a real pre-removal
+payload.
+
+Reopen only if a codec gains ICC support **and** there is evidence of demand from
+users doing colour-managed work.
 
 ### P1-12 · Optimise PNG output with oxipng
 **Status:** todo — attempted and reverted, see below

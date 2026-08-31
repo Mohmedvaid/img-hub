@@ -56,7 +56,7 @@ export function resolveOutputFormat(output: OutputSpec, sourceFormat: ImageForma
 /** A pipeline that changes nothing but the metadata. The neutral starting point. */
 export function defaultPipeline(): Pipeline {
   return {
-    transforms: [{ kind: 'metadata', stripExif: true, keepColorProfile: true }],
+    transforms: [{ kind: 'metadata', stripExif: true }],
     output: { format: 'source', quality: DEFAULT_QUALITY },
   }
 }

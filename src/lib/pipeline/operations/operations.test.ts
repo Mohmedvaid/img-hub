@@ -119,7 +119,7 @@ describe('operations stay independent', () => {
 describe('pipeline order', () => {
   it('applies operations in pipeline order however they were added', () => {
     const scrambled: Transform[] = [
-      { kind: 'metadata', stripExif: true, keepColorProfile: true },
+      { kind: 'metadata', stripExif: true },
       { kind: 'resize', mode: 'contain', width: 100, allowUpscale: false },
       { kind: 'crop', x: 0, y: 0, width: 10, height: 10 },
       { kind: 'rotate', degrees: 90, flipHorizontal: false, flipVertical: false },
@@ -157,7 +157,7 @@ describe('pipeline order', () => {
 
   it('leaves metadata last, since it is an encode-time flag not a pixel operation', () => {
     const order = orderOf([
-      { kind: 'metadata', stripExif: true, keepColorProfile: true },
+      { kind: 'metadata', stripExif: true },
       { kind: 'rotate', degrees: 90, flipHorizontal: false, flipVertical: false },
     ])
 
@@ -172,7 +172,7 @@ describe('pipeline order', () => {
 
   it('does not mutate the array it is given', () => {
     const original: Transform[] = [
-      { kind: 'metadata', stripExif: true, keepColorProfile: true },
+      { kind: 'metadata', stripExif: true },
       { kind: 'crop', x: 0, y: 0, width: 10, height: 10 },
     ]
     const snapshot = [...original]

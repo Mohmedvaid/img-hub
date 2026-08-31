@@ -2,9 +2,13 @@
  * Metadata handling. Strips EXIF and optionally the colour profile.
  *
  * Stripping is on by default: EXIF carries GPS coordinates and camera serial
- * numbers, and removing it both protects the user and shrinks the file. The colour
- * profile is kept by default because dropping it visibly shifts colours on wide-gamut
- * images, which looks like a bug.
+ * numbers, and removing it both protects the user and shrinks the file.
+ *
+ * There is deliberately no colour-profile option. Decoding converts to sRGB by
+ * applying whatever profile the source carried, and none of the WASM encoders can
+ * write an ICC profile back out. A toggle claiming to preserve one would be a promise
+ * the stack cannot keep. Converting to sRGB is also the right default for images
+ * headed to the web, where sRGB is what browsers assume. See P1-11.
  *
  * SAFETY REQUIREMENT — stripping EXIF is only safe because decoding auto-orients
  * first. The Orientation tag tells viewers to display the pixels rotated; removing it
@@ -23,15 +27,13 @@ export type MetadataTransform = {
   readonly kind: 'metadata'
   /** Removes EXIF, GPS and camera data. */
   readonly stripExif: boolean
-  /** Keeping the ICC profile preserves colour accuracy at a small size cost. */
-  readonly keepColorProfile: boolean
 }
 
 export const metadataOperation: OperationModule<MetadataTransform> = {
   kind: 'metadata',
 
   defaults() {
-    return { kind: 'metadata', stripExif: true, keepColorProfile: true }
+    return { kind: 'metadata', stripExif: true }
   },
 
   validate() {
@@ -43,7 +45,6 @@ export const metadataOperation: OperationModule<MetadataTransform> = {
     return ok({
       kind: 'metadata',
       stripExif: raw.stripExif === true,
-      keepColorProfile: raw.keepColorProfile === true,
     })
   },
 

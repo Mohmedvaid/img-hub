@@ -56,7 +56,7 @@ export function initialBuilderState(primary: FeatureId | undefined): BuilderStat
     rotate: { kind: 'rotate', degrees: 90, flipHorizontal: false, flipVertical: false },
     resize: { kind: 'resize', mode: 'contain', width: 1920, allowUpscale: false },
     crop: { kind: 'crop', x: 0, y: 0, width: 0, height: 0 },
-    metadata: { kind: 'metadata', stripExif: true, keepColorProfile: true },
+    metadata: { kind: 'metadata', stripExif: true },
     outputFormat: 'webp',
     quality: DEFAULT_QUALITY,
   }

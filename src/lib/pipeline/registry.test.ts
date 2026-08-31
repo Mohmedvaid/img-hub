@@ -128,7 +128,7 @@ describe('validatePipeline', () => {
         { kind: 'crop', x: 0, y: 0, width: 500, height: 500 },
         { kind: 'rotate', degrees: 270, flipHorizontal: false, flipVertical: true },
         { kind: 'resize', mode: 'cover', width: 200, height: 200, allowUpscale: true },
-        { kind: 'metadata', stripExif: true, keepColorProfile: true },
+        { kind: 'metadata', stripExif: true },
       ]),
       limits,
     )
