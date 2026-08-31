@@ -485,7 +485,7 @@ before it can say anything. It failed about two runs in five. It now waits.
 
 ### P5-03 · Deploy to Cloudflare
 
-**Status:** `todo` — prepared; needs Mohmed's Cloudflare account · **Phase:** 5
+**Status:** `done` — live at https://img-hub.mvaid.workers.dev · **Phase:** 5
 
 Workers with static assets, on the free `*.workers.dev` subdomain. No custom domain
 yet: there is no name, and one is not needed while indexing is off.
@@ -501,6 +501,20 @@ Everything up to authentication is done. Running it needs Mohmed's account.
 Done when: the site is reachable over HTTPS on `*.workers.dev`, `pnpm smoke` and
 `pnpm audit:seo` both pass against that URL, and the response headers match
 `out/_headers`.
+
+Deployed 2026-08-31. Verified against production:
+
+- All six security headers present, CSP byte-identical to the generated file. This
+  also answered the open question about whether `_headers` is a Pages-only feature:
+  Workers static assets honours it. The documented caveat, that it does not apply to
+  Worker-generated responses, does not bite because there is no Worker script.
+- `/_headers` returns 404 — consumed as configuration, not served as a file.
+- `robots.txt` returns `Disallow: /`. Indexing is off, as it stays until Mohmed says
+  otherwise.
+- `pnpm audit:seo` against the live URL: 547 checks over 32 pages, no blocking issues.
+
+The account's `workers.dev` subdomain is `mvaid`, registered during this deploy. It is
+account-level and shared by every future Worker, which is why it is not project-named.
 
 ### P5-04 · Cloudflare Web Analytics
 

@@ -9,8 +9,8 @@ file is a view, not a source. If the two disagree, the backlog is right.
 
 | | Count |
 |---|---|
-| Done | 37 |
-| In progress | 2 (Phase 5, launch) |
+| Done | 38 |
+| In progress | 1 (Phase 5, launch) |
 | To do (carried) | 2 reverted with reasons, 1 blocked on Mohmed |
 | Blocked | 0 |
 
@@ -19,9 +19,11 @@ file is a view, not a source. If the two disagree, the backlog is right.
 **Phase 5, getting the site live.** `P5-01` (about, contact, privacy), `P5-02`
 (static export, generated headers) and `P5-04` (Cloudflare Web Analytics) are done.
 
-`P5-03`, the deploy itself, is prepared as far as it can be from here: `wrangler.jsonc`
-is written and `pnpm deploy:cf` builds and ships. Running it needs Mohmed's Cloudflare
-account. `P5-05` is the domain, and waits on a product name.
+**The site is live at https://img-hub.mvaid.workers.dev** (`P5-03`), noindex, on
+Cloudflare's free tier. The SEO audit passes against production, and all six security
+headers are served from the generated `out/_headers`.
+
+`P5-05` is the domain, and waits on a product name.
 
 `pnpm build` now emits `out/` and `pnpm start` serves it through
 `scripts/serve.mjs` with the generated `out/_headers`, so smoke, the SEO audit and
@@ -63,7 +65,7 @@ pnpm smoke                      # 19 browser checks; needs the server running
 Then read `docs/BACKLOG.md` for what is left. The toolkit itself is feature-complete
 for v1 — what remains is launch work, and most of it needs a decision rather than code:
 
-1. **`P5-03` deploy** — `pnpm deploy:cf` is wired; it needs an authenticated wrangler.
+1. **Analytics token** — the only thing between the site and Core Web Vitals data.
    Hosting is
    settled in [ADR-0007](adr/0007-cloudflare-static-hosting.md): Cloudflare, static,
    free, ads permitted. Vercel is out because its Hobby plan prohibits AdSense
@@ -171,6 +173,6 @@ Tagged in git with an entry in [CHANGELOG.md](../CHANGELOG.md). Backfilled on
 | Tests | 545 passing at 96.5% statement coverage, plus a 19-check smoke suite and a 547-check SEO audit |
 | Typecheck | Clean, strict mode |
 | Lint | Clean |
-| Production build | Passing, static export to `out/` with generated `_headers` |
+| Production build | Passing; deployed to https://img-hub.mvaid.workers.dev |
 | Browser smoke | 19/19 passing |
 | Known bugs | None. Colour profile and PNG optimisation are unimplemented, not broken — P1-11, P1-12 |

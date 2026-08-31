@@ -41,8 +41,11 @@ Phase 5, getting the site live. Not tagged yet.
   no consent banner, free at any traffic level, and it reports Core Web Vitals.
   `src/components/Analytics.tsx` renders nothing without a token, so a build with none
   loads no third-party script at all.
-- **`wrangler.jsonc` and `pnpm deploy:cf`** (`P5-03`, prepared). The deploy declares no
-  Worker script: it is the contents of `out/` and nothing else.
+- **Deployed** (`P5-03`) to https://img-hub.mvaid.workers.dev, noindex. The deploy
+  declares no Worker script: it is the contents of `out/` and nothing else, and no
+  `routes`, `zone_id` or `custom_domain` key, so it cannot touch DNS. Confirmed in
+  production that Workers static assets honours `_headers` — it is not Pages-only —
+  and that the SEO audit passes there: 547 checks over 32 pages.
 
 ### Changed
 - `site.analytics.domain` is now `site.analytics.token`, from
