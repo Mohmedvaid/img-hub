@@ -3,15 +3,15 @@
 Where the project is **right now**. Regenerated from [BACKLOG.md](BACKLOG.md) — this
 file is a view, not a source. If the two disagree, the backlog is right.
 
-**Last updated:** 2026-08-31 · **Release:** `v0.2.0` · **Phase:** 1 complete, 3 mostly shipped
+**Last updated:** 2026-08-31 · **Release:** `v0.2.0` · **Phase:** 1 complete, 2 and 3 mostly shipped
 
 ## At a glance
 
 | | Count |
 |---|---|
-| Done | 22 |
+| Done | 23 |
 | In progress | 0 |
-| To do (carried) | 3 |
+| To do (carried) | 2 |
 | Blocked | 0 |
 
 ## In progress
@@ -20,9 +20,8 @@ Nothing. Phase 1 is on a branch awaiting review.
 
 ## Next up
 
-1. Interactive crop UI, then `P1-10` (crop rectangle remap on rotation). This also
-   unblocks the `crop-image` page, the last tool still dark
-2. AVIF output behind the slow-encode warning
+1. AVIF output behind the slow-encode warning
+2. Named presets (web hero, social square, email attachment)
 3. `P1-11` colour profile preservation
 4. Core Web Vitals pass, then AdSense
 
@@ -38,6 +37,8 @@ unmeasured gain. The backlog entry records what a reopen needs.
 - Browser smoke suite covering the WASM and EXIF paths unit tests cannot reach
 - 15 static tool pages with copy derived from format facts, FAQ structured data and
   internal linking
+- Interactive crop with aspect presets, and the rotation remap that keeps the drawn
+  region selected (`P1-10`); `crop-image` is now live, so every tool has a page
 - Six ADRs recording the decisions behind the stack
 
 ## Open questions
@@ -55,9 +56,9 @@ changes when the answers arrive.
 | Check | State |
 |---|---|
 | CI | Passing |
-| Tests | 182 passing, plus a browser smoke suite |
+| Tests | 210 passing, plus a 10-check browser smoke suite |
 | Typecheck | Clean, strict mode |
 | Lint | Clean |
 | Production build | Passing, all routes static |
-| Browser smoke | 6/6 passing |
+| Browser smoke | 10/10 passing |
 | Known bugs | None. Colour profile and PNG optimisation are unimplemented, not broken — P1-11, P1-12 |

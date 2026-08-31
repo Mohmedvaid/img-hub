@@ -53,16 +53,19 @@ main thread never blocks for more than a frame.
 resize, rotate, cover-crop, batch resilience and ZIP output are all asserted against
 actual output bytes and dimensions.
 
-## Phase 2 — Full toolkit `v0.2.0`
+## Phase 2 — Full toolkit `v0.2.0` — mostly shipped
 
 Every operation the pipeline models.
 
-- Crop, with an interactive selection and common aspect presets
-- Rotate and flip
-- Metadata control: strip EXIF and GPS, keep or drop the colour profile
-- Named presets (web hero, social square, email attachment)
-- AVIF output behind the slow-encode warning; `site.features.avifOutput` flips on
-- Remembering the last-used pipeline between visits
+- ✅ Crop, with an interactive selection, corner handles, keyboard nudging and
+  aspect presets. The box is measured against the rotated image and moves with it
+  when rotation changes (ADR-0006, P1-10)
+- ✅ Rotate and flip
+- ✅ Metadata stripping
+- ⬜ Colour profile preservation (P1-11) — the option exists but is not yet honoured
+- ⬜ Named presets (web hero, social square, email attachment)
+- ⬜ AVIF output behind the slow-encode warning; `site.features.avifOutput` flips on
+- ⬜ Remembering the last-used pipeline between visits
 
 ## Phase 3 — SEO surface `v0.3.0` — mostly shipped
 

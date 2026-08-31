@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isFeatureId } from '@/lib/pipeline/features'
+import { featureInfo, isFeatureId } from '@/lib/pipeline/features'
 import { allTools, findTool, liveTools, toolOptionalFeatures } from './tools'
 
 describe('tool registry', () => {
@@ -39,9 +39,15 @@ describe('tool registry', () => {
     expect(liveTools().map((tool) => tool.slug)).toContain('compress-image')
   })
 
-  it('keeps crop dark until its selection UI exists', () => {
-    // A page that cannot do what its title promises is worse than no page.
-    expect(liveTools().map((tool) => tool.slug)).not.toContain('crop-image')
+  it('ships the cropper now its selection UI exists', () => {
+    expect(liveTools().map((tool) => tool.slug)).toContain('crop-image')
+  })
+
+  it('offers every live tool a feature that is actually available', () => {
+    // A page whose primary feature has no controls cannot do what its title says.
+    for (const tool of liveTools()) {
+      expect(featureInfo(tool.primary).available).toBe(true)
+    }
   })
 
   it('ships every conversion pair, since convert works today', () => {
