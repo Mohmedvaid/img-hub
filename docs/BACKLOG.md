@@ -452,7 +452,7 @@ fails on it once indexing is on, so it cannot be forgotten.
 
 ### P5-02 · Static export and generated headers
 
-**Status:** `todo` · **Phase:** 5
+**Status:** `done` · **Phase:** 5
 
 `output: 'export'` in `next.config.ts`, plus `export const dynamic = 'force-static'`
 on `robots.ts` and `sitemap.ts` — without those two lines the build fails on the
@@ -466,6 +466,22 @@ what is actually served, not just to what `next.config.ts` says.
 Done when: `pnpm build` emits `out/`, `_headers` carries the same directives the dev
 server sends today, and a test asserts the generated file contains neither
 `Cross-Origin-Opener-Policy` nor `Cross-Origin-Embedder-Policy`.
+
+Shipped with two things the ticket did not anticipate:
+
+`next start` does not work with a static export, so `pnpm start` now runs
+`scripts/serve.mjs`, a static server that reads `out/_headers` and applies it. Without
+it the smoke suite, the SEO audit and the vitals run would all have been serving the
+files with no security headers — passing while checking a build that is not the one
+production serves.
+
+The generator reads `config/security.ts` directly, using Node's type stripping and a
+ten-line resolve hook for the extensionless imports. The alternative was a hand-copied
+policy, which is exactly the drift this ticket exists to prevent.
+
+`scripts/smoke.mjs` also gained a fix it needed regardless: the non-image check read
+the DOM immediately after selecting a file, racing the byte read that intake does
+before it can say anything. It failed about two runs in five. It now waits.
 
 ### P5-03 · Deploy to Cloudflare
 

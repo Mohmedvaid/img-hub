@@ -9,16 +9,20 @@ file is a view, not a source. If the two disagree, the backlog is right.
 
 | | Count |
 |---|---|
-| Done | 35 |
-| In progress | 4 (Phase 5, launch) |
+| Done | 36 |
+| In progress | 3 (Phase 5, launch) |
 | To do (carried) | 2 reverted with reasons, 1 blocked on Mohmed |
 | Blocked | 0 |
 
 ## In progress
 
-**Phase 5, getting the site live.** `P5-01` (about, contact, privacy) is done.
-Remaining: static export and generated headers, the Cloudflare deploy, swapping
-Plausible for Cloudflare Web Analytics, and finally the domain.
+**Phase 5, getting the site live.** `P5-01` (about, contact, privacy) and `P5-02`
+(static export, generated headers) are done. Remaining: the Cloudflare deploy,
+swapping Plausible for Cloudflare Web Analytics, and finally the domain.
+
+`pnpm build` now emits `out/` and `pnpm start` serves it through
+`scripts/serve.mjs` with the generated `out/_headers`, so smoke, the SEO audit and
+vitals all exercise the real CSP.
 
 Everything through Phase 4 is merged to `main` and CI is green, including the browser
 smoke suite, which now runs on every pull request rather than by hand.
@@ -56,7 +60,7 @@ pnpm smoke                      # 19 browser checks; needs the server running
 Then read `docs/BACKLOG.md` for what is left. The toolkit itself is feature-complete
 for v1 — what remains is launch work, and most of it needs a decision rather than code:
 
-1. **`P5-02` and `P5-03`** — static export, generated headers, deploy. Hosting is
+1. **`P5-03` deploy** — the build already emits what Cloudflare wants. Hosting is
    settled in [ADR-0007](adr/0007-cloudflare-static-hosting.md): Cloudflare, static,
    free, ads permitted. Vercel is out because its Hobby plan prohibits AdSense
 2. **`P5-05` domain** — blocked on a product name. It, indexing and the AdSense
@@ -160,9 +164,9 @@ Tagged in git with an entry in [CHANGELOG.md](../CHANGELOG.md). Backfilled on
 | Check | State |
 |---|---|
 | CI | Passing |
-| Tests | 509 passing at 96.8% statement coverage, plus a 19-check smoke suite and a 517-check SEO audit |
+| Tests | 545 passing at 96.5% statement coverage, plus a 19-check smoke suite and a 547-check SEO audit |
 | Typecheck | Clean, strict mode |
 | Lint | Clean |
-| Production build | Passing, all routes static |
+| Production build | Passing, static export to `out/` with generated `_headers` |
 | Browser smoke | 19/19 passing |
 | Known bugs | None. Colour profile and PNG optimisation are unimplemented, not broken — P1-11, P1-12 |

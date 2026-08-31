@@ -88,6 +88,21 @@ const tick = (label) =>
 /** Waits for the preview to have measured the image, which is what seeds the crop box. */
 const previewReady = () => page.waitForFunction(() => document.querySelector('img')?.complete)
 
+/**
+ * True once text matching `pattern` appears, false if it never does.
+ *
+ * Intake reads a file's bytes before it can say anything about it, so anything that
+ * asserts on the result has to wait for it. Reading the DOM straight after
+ * setInputFiles raced that read and failed about two runs in five.
+ */
+const seen = (pattern, timeout = 5000) =>
+  page
+    .getByText(pattern)
+    .first()
+    .waitFor({ state: 'visible', timeout })
+    .then(() => true)
+    .catch(() => false)
+
 async function open(path, files) {
   await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle' })
   await page.setInputFiles('input[type=file]', files)
@@ -290,14 +305,16 @@ check(
 console.log('\n=== a non-image is refused with a reason ===')
 await page.goto(BASE, { waitUntil: 'networkidle' })
 await page.setInputFiles('input[type=file]', [`${SP}/notes.pdf`])
-const refusal = await page.getByText(/does not look like an image/).count()
-check('a PDF is named and explained rather than dropped in silence', refusal > 0)
+check(
+  'a PDF is named and explained rather than dropped in silence',
+  await seen(/does not look like an image/),
+)
 
 console.log('\n=== lossless quality note ===')
 await open('/compress-image', [`${SP}/photo.png`])
 check(
   'PNG on the compressor explains quality has no effect',
-  (await page.getByText(/These files stay lossless/).count()) > 0,
+  await seen(/These files stay lossless/),
 )
 await page.screenshot({ path: `${SP}/shot-toolpage.png` })
 

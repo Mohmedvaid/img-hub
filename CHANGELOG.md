@@ -16,6 +16,34 @@ tool pages belong to the SEO phase on paper but shipped inside the toolkit windo
 
 ---
 
+## [Unreleased]
+
+Phase 5, getting the site live. Not tagged yet.
+
+### Added
+- **About, contact and privacy pages** (`P5-01`), linked from a new footer on every
+  page. The privacy policy is generated against config: its advertising and analytics
+  sections render only when those flags are on, so it cannot claim third parties the
+  site does not run.
+- **Static export** (`P5-02`). `pnpm build` emits `out/`; hosting is Cloudflare, per
+  [ADR-0007](docs/adr/0007-cloudflare-static-hosting.md).
+- **`out/_headers` generated from `config/security.ts`** by `scripts/headers.mjs`.
+  `headers()` does not run in a static export, and a hand-written copy would let the
+  served CSP drift from the reviewed one. The generator exits non-zero if COOP or COEP
+  ever appear, making ADR-0002's prohibition a failing build rather than a comment.
+- **`scripts/serve.mjs`**, a static server that applies `out/_headers`. `next start`
+  does not work with an export, and a plain file server would have left the smoke
+  suite and SEO audit checking a build with no security headers.
+- **`config/security.test.ts`** — 19 assertions on the header set, including that
+  `connect-src` stays `'self'`, which is what makes the privacy claim enforced.
+
+### Fixed
+- `scripts/smoke.mjs` read the DOM immediately after selecting a file, racing the byte
+  read intake performs before it can report anything. It failed about two runs in
+  five; it now waits.
+
+---
+
 ## [v0.4.0] — 2026-08-31 — Editor UX
 
 Rotate and flip became buttons over a live preview, files started being identified by
