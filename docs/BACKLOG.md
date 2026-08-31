@@ -620,8 +620,12 @@ than no contact page, and AdSense checks it.
 Cannot be settled from here: it is either a personal address or one on the domain that
 does not exist yet, and which of those it is, is Mohmed's call.
 
-`scripts/seo-audit.mjs` fails on any `example.com` address once indexing is on, so this
-cannot be forgotten, only deliberately deferred.
+`scripts/seo-audit.mjs` fails on any `example.com` address once indexing is on **and**
+the origin being audited is a real deployment, so this cannot be forgotten, only
+deliberately deferred. Both conditions are needed: CI audits a synthetic origin with
+indexing forced on to exercise the launch config, and that is a rehearsal rather than
+a launch. Gating on the indexing flag alone turned CI red for a problem that only
+matters on a site people can reach.
 
 Done when: `brand.supportEmail` is an address that receives mail, and the audit passes
 with `NEXT_PUBLIC_ALLOW_INDEXING=true`.

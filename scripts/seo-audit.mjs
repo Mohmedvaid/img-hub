@@ -18,6 +18,18 @@
 
 const BASE = (process.argv[2] ?? 'http://localhost:3000').replace(/\/+$/, '')
 
+/**
+ * Whether the origin being audited is a real deployment.
+ *
+ * CI runs this against a synthetic origin with indexing forced on, to exercise the
+ * launch configuration on every commit. That is not a launch, so checks about
+ * unfinished real-world details — a placeholder contact address, say — must not fire
+ * there. Keying them on the indexing flag alone turned CI red for a problem that only
+ * matters on a site people can actually reach.
+ */
+const PLACEHOLDER_HOSTS = /^(localhost|127\.0\.0\.1|\[::1\])$|(^|\.)example\.(com|org|net)$|\.example$/
+const isRealDeployment = !PLACEHOLDER_HOSTS.test(new URL(BASE).hostname)
+
 const failures = []
 const warnings = []
 let checks = 0
@@ -201,15 +213,19 @@ async function main() {
 
   // Placeholder contact details are the easiest thing to ship by accident and among
   // the worst: a contact page nobody can actually use reads as an abandoned site.
-  // Only a problem once the site is open to crawlers, so it gates launch rather than
-  // every commit — set brand.supportEmail before flipping indexing on.
-  if (indexingOn) {
+  //
+  // Enforced only when a real deployment is being audited with indexing on. Both
+  // conditions matter: CI audits a synthetic origin with indexing forced on, and that
+  // is a rehearsal rather than a launch.
+  if (indexingOn && isRealDeployment) {
     const contact = await fetchPage('/contact')
     check(
       !/example\.com|example\.org|your-?email|TODO/i.test(contact.html),
       '/contact',
       'still carries a placeholder contact address',
     )
+  } else if (indexingOn) {
+    console.log(`Placeholder-content checks skipped: ${BASE} is not a real deployment.\n`)
   }
 
   console.log(`${checks} checks across ${urls.length} pages\n`)
