@@ -11,6 +11,15 @@
   "name": "img-hub",
   "compatibility_date": "2026-08-31",
 
+  // Published to <name>.<account>.workers.dev and nowhere else.
+  //
+  // Stated rather than left to the default, because this account also serves a
+  // production site. There is deliberately no `routes`, `zone_id`, `zone_name` or
+  // `custom_domain` key here: without one, a deploy cannot attach this Worker to a
+  // hostname, touch a zone, or write a DNS record. Adding a custom domain later means
+  // adding one of those keys, which is a visible, reviewable change.
+  "workers_dev": true,
+
   "assets": {
     "directory": "./out",
 
