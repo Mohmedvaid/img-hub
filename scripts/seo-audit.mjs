@@ -19,6 +19,29 @@
 const BASE = (process.argv[2] ?? 'http://localhost:3000').replace(/\/+$/, '')
 
 /**
+ * The path the site is served under, if any — '/img-hub' on a GitHub Pages project
+ * site, '' at a domain root.
+ *
+ * Sitemap entries are absolute URLs that already include it, so it has to come back
+ * off before a path is joined onto BASE again. Without this every fetch here asks
+ * for `/img-hub/img-hub/...` and the audit reports the whole site missing.
+ */
+const BASE_PATH = new URL(BASE).pathname.replace(/\/+$/, '')
+
+/** Turns an absolute sitemap URL into a path relative to BASE. */
+function toSitePath(absolute) {
+  const { pathname } = new URL(absolute)
+  const relative =
+    BASE_PATH && pathname.startsWith(BASE_PATH) ? pathname.slice(BASE_PATH.length) : pathname
+  return relative || '/'
+}
+
+/** Ignores a trailing slash, which `trailingSlash: true` adds and a comparison should not care about. */
+function withoutTrailingSlash(value) {
+  return value.replace(/\/+$/, '')
+}
+
+/**
  * Whether the origin being audited is a real deployment.
  *
  * CI runs this against a synthetic origin with indexing forced on, to exercise the
@@ -107,7 +130,9 @@ async function auditPage(path) {
   if (canonical) {
     check(/^https?:\/\//.test(canonical), path, 'canonical is not absolute', canonical)
     check(
-      canonical.replace(/\/$/, '').endsWith(path === '/' ? '' : path),
+      withoutTrailingSlash(canonical).endsWith(
+        path === '/' ? BASE_PATH : `${BASE_PATH}${withoutTrailingSlash(path)}`,
+      ),
       path,
       'canonical does not point at this page',
       canonical,
@@ -176,7 +201,7 @@ async function main() {
   }
 
   const sitemap = await fetch(`${BASE}/sitemap.xml`).then((r) => r.text())
-  const urls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, url]) => new URL(url).pathname)
+  const urls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, url]) => toSitePath(url))
 
   check(urls.length > 0, 'sitemap.xml', 'lists no URLs')
   check(urls.includes('/'), 'sitemap.xml', 'does not list the home page')

@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { securityHeaders } from './security'
+import {
+  headerOnlyProtections,
+  metaContentSecurityPolicy,
+  referrerPolicy,
+  securityHeaders,
+} from './security'
 
 const header = (key: string) =>
   securityHeaders.find((entry) => entry.key.toLowerCase() === key.toLowerCase())?.value
@@ -157,5 +162,85 @@ describe('hosts appear only under their feature flag', () => {
   it('blocks framing entirely while ads are off', async () => {
     const policy = await policyWith({})
     expect(policy).toMatch(/frame-src 'none'/)
+  })
+})
+
+/**
+ * The policy that actually ships.
+ *
+ * Production serves plain files and sets no headers, so the CSP travels in a meta
+ * tag. A meta tag cannot carry every directive, and the browser drops the ones it
+ * cannot without saying so — which is exactly the kind of silent gap this file
+ * exists to catch.
+ */
+describe('the meta-delivered policy', () => {
+  const metaDirective = (name: string) =>
+    metaContentSecurityPolicy()
+      .split(';')
+      .map((part) => part.trim())
+      .find((part) => part === name || part.startsWith(`${name} `))
+
+  it.each(['frame-ancestors', 'report-uri', 'report-to', 'sandbox'])(
+    'omits %s, which a meta tag cannot carry',
+    (name) => {
+      expect(metaDirective(name)).toBeUndefined()
+    },
+  )
+
+  it('still allows WebAssembly, or no codec can start in production', () => {
+    expect(metaDirective('script-src')).toContain("'wasm-unsafe-eval'")
+  })
+
+  it('still confines the page to its own origin', () => {
+    // The privacy claim is enforced by this line in the shipped build, not by the
+    // header version that only `next dev` ever sends.
+    expect(metaDirective('connect-src')).toBe("connect-src 'self'")
+  })
+
+  it.each(['default-src', 'object-src', 'base-uri', 'form-action', 'img-src', 'worker-src'])(
+    'carries %s unchanged from the header policy',
+    (name) => {
+      expect(metaDirective(name)).toBe(directive(name))
+    },
+  )
+
+  it('differs from the header policy only by the directives meta drops', () => {
+    const names = (policy: string) =>
+      policy
+        .split(';')
+        .map((part) => part.trim().split(' ')[0])
+        .filter(Boolean)
+
+    expect(
+      names(csp()).filter((name) => !names(metaContentSecurityPolicy()).includes(name)),
+    ).toEqual(['frame-ancestors'])
+  })
+})
+
+describe('protections lost on a host that sets no headers', () => {
+  // Two things travel in the document: the CSP and the referrer policy. Every other
+  // header in the set needs a deliberate decision about living without it, and this
+  // is what forces one — adding a header without documenting its fate fails here.
+  it('accounts for every header that the document cannot carry', () => {
+    const carriedInDocument = ['content-security-policy', 'referrer-policy']
+
+    const undeliverable = securityHeaders
+      .map((entry) => entry.key.toLowerCase())
+      .filter((key) => !carriedInDocument.includes(key))
+      .sort()
+
+    const documented = headerOnlyProtections.map((entry) => entry.header.toLowerCase()).sort()
+
+    expect(documented).toEqual(undeliverable)
+  })
+
+  it('says what each loss costs, so nobody has to re-derive it', () => {
+    for (const entry of headerOnlyProtections) {
+      expect(entry.impact.length).toBeGreaterThan(40)
+    }
+  })
+
+  it('keeps the referrer policy identical to the header it replaces', () => {
+    expect(referrerPolicy).toBe(header('Referrer-Policy'))
   })
 })

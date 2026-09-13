@@ -25,29 +25,59 @@ Phase 5, getting the site live. Not tagged yet.
   page. The privacy policy is generated against config: its advertising and analytics
   sections render only when those flags are on, so it cannot claim third parties the
   site does not run.
-- **Static export** (`P5-02`). `pnpm build` emits `out/`; hosting is Cloudflare, per
-  [ADR-0007](docs/adr/0007-cloudflare-static-hosting.md).
-- **`out/_headers` generated from `config/security.ts`** by `scripts/headers.mjs`.
-  `headers()` does not run in a static export, and a hand-written copy would let the
-  served CSP drift from the reviewed one. The generator exits non-zero if COOP or COEP
-  ever appear, making ADR-0002's prohibition a failing build rather than a comment.
-- **`scripts/serve.mjs`**, a static server that applies `out/_headers`. `next start`
-  does not work with an export, and a plain file server would have left the smoke
-  suite and SEO audit checking a build with no security headers.
-- **`config/security.test.ts`** — 24 assertions on the header set, including that
+- **Static export** (`P5-02`). `pnpm build` emits `out/`; hosting is GitHub Pages, per
+  [ADR-0008](docs/adr/0008-github-pages-hosting.md).
+- **The security policy is delivered in the document** — `<meta http-equiv>` for the
+  CSP and `<meta name="referrer">` for the referrer policy, both built from
+  `config/security.ts` and injected by `scripts/postbuild.mjs`. `headers()` does not
+  run in a static export and the host sets no headers of its own, so this is the
+  policy visitors actually get. Injected rather than rendered from the root layout
+  because Next hoists its own script tags above anything a layout puts in `<head>`,
+  and a meta policy does not govern scripts that precede it — the script verifies its
+  own output and fails the build if one ever does.
+- **`scripts/serve.mjs`**, a static server that honours the base path and sets no
+  security headers, matching the host. `next start` does not work with an export.
+- **`config/security.test.ts`** — 40 assertions on the policy, including that
   `connect-src` stays `'self'` while analytics is off, which is what makes the privacy
-  claim enforced, and that no combination of feature flags ever isolates the page.
+  claim enforced; that no combination of feature flags ever isolates the page; and
+  that every header the document cannot carry is accounted for in
+  `headerOnlyProtections`, so adding one without deciding its fate fails the suite.
+- **`config/site.test.ts`** — the base path is derived from the canonical URL, and
+  these hold the two to the same value. A deployment where they disagree looks correct
+  in a browser while every canonical tag points at a 404.
 - **Cloudflare Web Analytics** (`P5-04`), replacing the Plausible wiring. Cookieless,
   no consent banner, free at any traffic level, and it reports Core Web Vitals.
   `src/components/Analytics.tsx` renders nothing without a token, so a build with none
   loads no third-party script at all.
-- **Deployed** (`P5-03`) to https://img-hub.mvaid.workers.dev, noindex. The deploy
-  declares no Worker script: it is the contents of `out/` and nothing else, and no
-  `routes`, `zone_id` or `custom_domain` key, so it cannot touch DNS. Confirmed in
-  production that Workers static assets honours `_headers` — it is not Pages-only —
-  and that the SEO audit passes there: 547 checks over 32 pages.
+- **Deployed** (`P5-08`) to GitHub Pages at https://mohmedvaid.github.io/img-hub/,
+  noindex, published by `.github/workflows/pages.yml` on a merge to `main`.
 
 ### Changed
+- **Hosting moved from Cloudflare Workers to GitHub Pages** (`P5-08`, superseding
+  `P5-03`), at Mohmed's request, to keep source, CI and hosting in one account.
+  [ADR-0008](docs/adr/0008-github-pages-hosting.md) records the whole trade.
+
+  It costs response headers: GitHub Pages sets none and offers no way to add any. The
+  CSP and referrer policy moved into the document and survive, `frame-ancestors`
+  excepted — a meta tag silently drops it, so `metaContentSecurityPolicy()` strips it
+  rather than claiming protection that is not there. `X-Frame-Options`,
+  `X-Content-Type-Options`, `Strict-Transport-Security` and `Permissions-Policy` are
+  gone, and `headerOnlyProtections` says what each cost. `securityHeaders` stays whole,
+  so a move back restores all six with no code change.
+
+  The site is now served from `/img-hub` rather than a root. `basePath` is derived from
+  `NEXT_PUBLIC_SITE_URL` in `config/site.ts`, and the workflow takes that URL from
+  `actions/configure-pages` rather than a value typed into the repo. CI builds and
+  serves under the subpath for both the smoke suite and the SEO audit, because a
+  root-served test cannot see a base-path mistake and such a mistake breaks every page
+  at once.
+
+  Removed with it: `wrangler.jsonc`, the pinned `wrangler` devDependency, the
+  `deploy:cf` script and `scripts/headers.mjs`.
+- **`robots.txt` no longer sits at the host root**, since that belongs to the account
+  rather than this repo. Indexing is enforced by the per-page `noindex` tag — the
+  second of the two independent layers — and a real domain is now required before
+  indexing for this reason as well as ranking (`P5-05`).
 - `site.analytics.domain` is now `site.analytics.token`, from
   `NEXT_PUBLIC_ANALYTICS_TOKEN`. Cloudflare identifies a site by beacon token rather
   than hostname. The CSP needs two hosts for it, not one: one serves the script, the

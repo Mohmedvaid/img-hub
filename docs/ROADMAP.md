@@ -95,13 +95,16 @@ Where traffic comes from. The registry already existed; this shipped its routes.
 
 ## Phase 5 — Launch `v0.5.0`
 
-Hosting settled in [ADR-0007](adr/0007-cloudflare-static-hosting.md): static export on
-Cloudflare Workers, free, ads permitted. Indexing stays off throughout.
+Hosting settled in [ADR-0008](adr/0008-github-pages-hosting.md): static export on
+GitHub Pages, free, published on merge. Indexing stays off throughout.
 
 - ✅ About, contact and privacy pages, the last generated against config (`P5-01`)
-- ⬜ Static export and generated `_headers` (`P5-02`)
-- ⬜ Deploy to `*.workers.dev` (`P5-03`)
-- ⬜ Cloudflare Web Analytics in place of Plausible (`P5-04`)
+- ✅ Static export (`P5-02`)
+- ✅ Deployed (`P5-03` on Cloudflare, superseded by `P5-08` on GitHub Pages)
+- ✅ Cloudflare Web Analytics in place of Plausible (`P5-04`) — awaiting a token
+- ✅ Moved to GitHub Pages, CSP delivered in the document (`P5-08`)
+- ⬜ The builder does not look broken when scrolled (`P5-06`)
+- ⬜ A real support address (`P5-07`), blocked on Mohmed
 - ⬜ Domain, then indexing, then AdSense — one step, blocked on a product name
   (`P5-05`)
 

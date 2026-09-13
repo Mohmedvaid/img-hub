@@ -425,7 +425,7 @@ rasteriser would test the stub. They are asserted on real pixels in
 ## Phase 5 — Launch (`v0.5.0`)
 
 Everything between a working toolkit and a site that is actually live. Hosting is
-settled in [ADR-0007](adr/0007-cloudflare-static-hosting.md).
+settled in [ADR-0008](adr/0008-github-pages-hosting.md), which supersedes ADR-0007.
 
 **Indexing stays off for all of it.** `NEXT_PUBLIC_ALLOW_INDEXING` is flipped by
 Mohmed, saying so explicitly in chat, and by nobody and nothing else.
@@ -441,7 +441,7 @@ can slip a release; one of these slipping means launch does not happen.
 | The builder does not look broken when scrolled | `P5-06` | **not started** |
 | A real support address, not `support@example.com` | `P5-07` | not started, needs Mohmed |
 | About, contact and privacy pages exist and are linked | `P5-01` | done |
-| Deployed and reachable over HTTPS | `P5-03` | done |
+| Deployed and reachable over HTTPS | `P5-08` | done, on GitHub Pages |
 | Analytics collecting, so launch has a baseline | `P5-04` | code done, needs a token |
 | SEO audit passes against the launch config | `P3-01` | passes, minus the support address |
 | Core Web Vitals pass on the real origin | `P3-02` | passes locally, needs the domain |
@@ -473,11 +473,15 @@ fails on it once indexing is on, so it cannot be forgotten.
 
 ### P5-02 · Static export and generated headers
 
-**Status:** `done` · **Phase:** 5
+**Status:** `done`, header generation since replaced by `P5-08` · **Phase:** 5
 
 `output: 'export'` in `next.config.ts`, plus `export const dynamic = 'force-static'`
 on `robots.ts` and `sitemap.ts` — without those two lines the build fails on the
-metadata routes. Verified by trial on 2026-08-31.
+metadata routes. Verified by trial on 2026-08-31. The export itself is unchanged.
+
+The `_headers` half of this ticket is history. GitHub Pages sets no response headers,
+so the policy moved into the document; `P5-08` and [ADR-0008](adr/0008-github-pages-hosting.md)
+describe what replaced it and what it cost.
 
 `headers()` does not run in a static export, so `config/security.ts` needs a build
 step that writes `public/_headers`. Generate it; never hand-write it. The CSP has one
@@ -506,7 +510,10 @@ before it can say anything. It failed about two runs in five. It now waits.
 
 ### P5-03 · Deploy to Cloudflare
 
-**Status:** `done` — live at https://img-hub.mvaid.workers.dev · **Phase:** 5
+**Status:** `superseded` by `P5-08` — the site moved to GitHub Pages · **Phase:** 5
+
+Kept as the record of how the first deploy went and what it established. Everything
+below was true of the Cloudflare deployment; none of it describes the site today.
 
 Workers with static assets, on the free `*.workers.dev` subdomain. No custom domain
 yet: there is no name, and one is not needed while indexing is off.
@@ -629,6 +636,61 @@ matters on a site people can reach.
 
 Done when: `brand.supportEmail` is an address that receives mail, and the audit passes
 with `NEXT_PUBLIC_ALLOW_INDEXING=true`.
+
+### P5-08 · Move hosting to GitHub Pages
+
+**Status:** `done` · **Phase:** 5
+
+Mohmed asked for the site to live on GitHub Pages at the free `github.io` URL instead
+of Cloudflare. The cost was put to him first and he confirmed; [ADR-0008](adr/0008-github-pages-hosting.md)
+records the whole trade so it does not have to be re-derived.
+
+The short version of what it cost: **GitHub Pages sets no response headers at all.**
+All six in `config/security.ts` stop being sent. Two are recovered in the document —
+the CSP via `<meta http-equiv>` and the referrer policy via `<meta name="referrer">`,
+injected into every page by `scripts/postbuild.mjs` —
+and `connect-src 'self'`, which is what makes the privacy claim enforced rather than
+promised, is intact in the policy visitors actually get. A meta tag silently drops
+`frame-ancestors`, so `metaContentSecurityPolicy()` strips it rather than claiming a
+protection that is not there. The remaining four are gone, and
+`headerOnlyProtections` in `config/security.ts` says what each one costs.
+
+`securityHeaders` stays whole and is still the single source of truth. Moving to a
+host that can set headers restores all six with no code change.
+
+The second half of the work is the subpath. A Pages project site is served from
+`/<repo>`, so `basePath` is derived in `config/site.ts` from `NEXT_PUBLIC_SITE_URL`
+rather than configured separately — they are one fact, and a deployment where they
+disagree looks fine in a browser while every canonical tag points at a 404. The
+workflow reads that URL from `actions/configure-pages`, so it comes from GitHub rather
+than from a value typed into this repo.
+
+CI now builds and serves under `/img-hub` for both the browser smoke suite and the SEO
+audit. A root-served test cannot see a base-path mistake, and a base-path mistake
+breaks every page at once.
+
+One thing worth recording because it was nearly missed. The policy was first rendered
+from the root layout, which looked right and worked — but reading the emitted HTML
+showed Next hoists its own stylesheet links and script tags above anything a layout
+puts in `<head>`, so the policy landed *below* the scripts it was meant to govern and
+did not apply to them. Nothing failed; the page was fine either way. It is injected at
+build time now, and `scripts/postbuild.mjs` checks its own output per file and fails
+the build if a script or stylesheet ever precedes the policy. That guard was confirmed
+to fire by deliberately injecting in the wrong place.
+
+Done when: the workflow publishes on a merge to `main`, the site loads and processes an
+image at the Pages URL, `pnpm verify` passes, and the smoke suite and SEO audit pass
+against a subpath build.
+
+Verified before the first deploy: 580 SEO checks across 32 pages and 19/19 smoke checks,
+both against `http://localhost:3000/img-hub`, with the meta CSP live and no page errors
+— so the worker and the WASM codecs run under the policy that ships.
+
+Known and accepted: `robots.txt` lands at `/img-hub/robots.txt`, where no crawler will
+read it, because crawlers read the host root and that belongs to the account rather
+than this repo. It does not matter while indexing is off — the per-page `noindex` tag
+is what enforces that, which is why it was built as two independent layers — and it is
+one more reason a real domain is needed before indexing (`P5-05`).
 
 ---
 
