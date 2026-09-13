@@ -1,6 +1,6 @@
 # 0007. Host as static files on Cloudflare, not Vercel
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0008](0008-github-pages-hosting.md)
 - **Date:** 2026-08-31
 
 ## Context

@@ -48,29 +48,37 @@ jobs:
       # neither exists under jsdom. This is the only place they are actually asserted,
       # and it has already caught a bug the unit suite passed over — see P4-06.
       #
-      # `pnpm start` serves the static export through scripts/serve.mjs, applying
-      # out/_headers. That means these runs exercise the real CSP rather than a
-      # header-free approximation of it.
+      # Built and served under a subpath, because that is what production is: GitHub
+      # Pages serves a project site from /<repo>. A root-served build hides every
+      # base-path mistake, and those break the whole site rather than one page.
+      #
+      # No security headers are applied, matching the host. The CSP these runs
+      # exercise is the one in the document, which is the one visitors get.
       - name: Browser smoke
+        env:
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000/img-hub
         run: |
           npx playwright install --with-deps chromium
           pnpm build
           pnpm start &
-          for i in $(seq 1 30); do curl -sf -o /dev/null http://localhost:3000/ && break; sleep 1; done
+          for i in $(seq 1 30); do curl -sf -o /dev/null http://localhost:3000/img-hub/ && break; sleep 1; done
           node scripts/fixtures.mjs .fixtures
-          node scripts/smoke.mjs .fixtures
+          SMOKE_URL=http://localhost:3000/img-hub node scripts/smoke.mjs .fixtures
           # Free port 3000 for the SEO audit, which starts its own server.
           pkill -f 'scripts/serve.mjs' || true
 
       # Runs against the launch configuration rather than the default one, so the
       # audit sees the canonicals, robots directives and sitemap production will
       # actually serve. Needs no browser, so it is cheap enough to gate every commit.
+      #
+      # Also under a subpath: a canonical tag that drops the prefix points at a URL
+      # the host does not serve, and nothing in a browser would show it.
       - name: SEO audit
         env:
           NEXT_PUBLIC_ALLOW_INDEXING: 'true'
-          NEXT_PUBLIC_SITE_URL: https://img-hub.example
+          NEXT_PUBLIC_SITE_URL: https://img-hub.example/img-hub
         run: |
           pnpm build
-          pnpm start &
-          for i in $(seq 1 30); do curl -sf -o /dev/null http://localhost:3000/ && break; sleep 1; done
-          pnpm audit:seo
+          NEXT_PUBLIC_SITE_URL=http://localhost:3000/img-hub pnpm start &
+          for i in $(seq 1 30); do curl -sf -o /dev/null http://localhost:3000/img-hub/ && break; sleep 1; done
+          pnpm audit:seo http://localhost:3000/img-hub

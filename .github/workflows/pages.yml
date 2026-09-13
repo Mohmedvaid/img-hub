@@ -1,0 +1,85 @@
+# Builds the static export and publishes it to GitHub Pages — P5-08.
+#
+# Runs on every push to main, so a merged PR is live without a manual step. CI
+# (ci.yml) gates the merge; this job assumes that already passed and only builds and
+# uploads.
+#
+# Hosting rationale, and what moving off a header-capable host cost, are in
+# docs/adr/0008-github-pages-hosting.md.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # So a redeploy after changing a secret does not need an empty commit.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never two deploys at once, and never cancel one midway: an interrupted deploy can
+# leave the site serving a half-uploaded build.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Reports where Pages will serve this repo — https://<owner>.github.io/<repo>
+      # for a project site. Taken from the action rather than written here so the
+      # canonical URLs and the base path cannot drift from the real one.
+      #
+      # `static_site_generator` is deliberately not set: it would inject its own
+      # basePath handling, and config/site.ts already derives that from this URL.
+      - uses: actions/configure-pages@v5
+        id: pages
+        with:
+          # Turns Pages on for the repo if it is not already, so the first run of
+          # this workflow does not fail on a setting nobody knew to flip. Harmless
+          # once it is on.
+          enablement: true
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ steps.pages.outputs.base_url }}
+          # Unset unless the secret exists, which is what keeps the beacon and the
+          # privacy policy's analytics section off until there is a token.
+          NEXT_PUBLIC_ANALYTICS_TOKEN: ${{ secrets.NEXT_PUBLIC_ANALYTICS_TOKEN }}
+          # NEXT_PUBLIC_ALLOW_INDEXING is deliberately absent. Indexing is opt-in and
+          # Mohmed turns it on in as many words; see rule zero in CLAUDE.md. Adding it
+          # here is not a deploy change, it is a launch decision.
+        run: pnpm build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment

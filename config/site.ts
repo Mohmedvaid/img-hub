@@ -22,8 +22,44 @@ function normaliseOrigin(value: string): string {
 
 const siteUrl = normaliseOrigin(env('NEXT_PUBLIC_SITE_URL') ?? 'http://localhost:3000')
 
+/**
+ * The path the site is served under, derived from the canonical URL rather than
+ * configured separately.
+ *
+ * GitHub Pages serves a project site from `/<repo>`, not from the root, so every
+ * asset URL and every internal link needs that prefix. Next applies it from
+ * `basePath` in next.config.ts, and the canonical URLs come from `site.url`. Those
+ * are two expressions of one fact, and configuring them independently is how a
+ * deployment ends up with working links and canonical tags pointing at URLs that
+ * 404 — the failure is invisible in the browser and only shows up in Search Console
+ * weeks later.
+ *
+ * So there is one input. Set `NEXT_PUBLIC_SITE_URL` to the full public URL including
+ * any subpath, and both follow from it.
+ *
+ * Returns '' for a root deployment, which is what Next expects for "no basePath".
+ */
+function derivePath(url: string): string {
+  try {
+    const { pathname } = new URL(url)
+    const trimmed = pathname.replace(/\/+$/, '')
+    return trimmed === '/' ? '' : trimmed
+  } catch {
+    // An unparseable URL is a config error, but it must not take the build down
+    // here; buildMetadata's `new URL()` reports it with a better message.
+    return ''
+  }
+}
+
 export const site = {
   url: siteUrl,
+
+  /**
+   * Path prefix for this deployment — '' at a domain root, '/img-hub' on GitHub
+   * Pages. Read by next.config.ts; application code should not need it, because
+   * `next/link` and the bundler apply it automatically.
+   */
+  basePath: derivePath(siteUrl),
 
   /** BCP 47 tag. Drives <html lang> and OG locale. */
   locale: 'en',
