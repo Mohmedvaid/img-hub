@@ -37,11 +37,11 @@ export type Preset = {
 
 export const presets: readonly Preset[] = [
   {
-    id: 'shopify-product',
-    label: 'Shopify product',
-    hint: 'Up to 2048px wide, WebP, compressed. Shopify’s recommended photo size.',
+    id: 'product-page',
+    label: 'Product page image',
+    hint: 'Up to 1024px wide, WebP, compressed. The width most store themes render.',
     features: ['resize', 'convert', 'compress', 'metadata'],
-    resize: { mode: 'contain', width: 2048 },
+    resize: { mode: 'contain', width: 1024 },
     outputFormat: 'webp',
     quality: 82,
   },

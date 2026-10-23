@@ -746,6 +746,25 @@ Verified in a browser at 375px and at desktop, on the home builder, `/resize-ima
 and `/png-to-webp`: all six chips fit one row in the settings column at both widths,
 and the info panel stays on screen at 375px.
 
+### P5-10 · The store preset targets the width a theme actually renders
+
+**Status:** `done` · **Phase:** 5
+
+`P5-09` shipped the preset at 2048px, on the reasoning that Shopify wants a large
+master and generates its own variants. Mohmed's call is 1024, which is what a theme
+renders on a product page, and it is his workflow: the files he is resizing are
+already going straight onto a page rather than being handed to Shopify to re-derive.
+
+Renamed with it. "Shopify product" named a platform the preset has nothing to do with
+— nothing in it is Shopify-specific, and the same width is right for a WooCommerce or
+a hand-rolled product page. "Product page image" names the job.
+
+The 2048 chip stays, and its line still says what it is for, so the master-image route
+is one click away for anyone who wants it.
+
+Done when: the preset reads "Product page image" and resizes to 1024; `pnpm verify`
+passes.
+
 ---
 
 ## Unscheduled
