@@ -44,6 +44,18 @@ produce. See ADR-0006.
 - Invalid combinations show the message from `validatePipeline`
 - A pipeline persists while files are added or removed
 
+Presets sit above the two columns rather than inside the settings column. They are
+the fastest route to a finished file, and in the column they were below the preview,
+the dropzone and the results on every screen narrower than `lg` — the first thing a
+visitor should see, reachable only by scrolling past everything else.
+
+Each preset and each width chip shows its name alone, with the sentence explaining it
+behind an info button beside the heading. That prose is read once and never again;
+six lines of it is taller than the controls it was meant to save someone from, and
+deleting it would leave "1024" meaning nothing to a first-time visitor. The info
+button is not a tooltip: hover does not exist on a phone, and the content is a list
+that has to stay open while it is read.
+
 **Not included:** arbitrary operation reordering. The order is what makes a saved
 pipeline mean the same thing every time it runs, so it is a correctness guarantee
 rather than a limitation to remove later.
@@ -96,16 +108,32 @@ must not cost the other thirty-nine.
 
 ## Resize
 
-**Status:** Phase 1 · **Tickets:** P1-03
+**Status:** Phase 1 · **Tickets:** P1-03, P5-09
 
 Three modes: `contain` fits inside the box, `cover` fills and centre-crops, `exact`
 stretches.
+
+Above the two number fields is a row of one-click widths from `widthPresets` in
+`config/presets.ts`. They set a width and *clear* the height, because almost every
+target anyone resizes for is specified as a width — a store theme's product image, a
+page column — and typing a height alongside it is how a photo ends up squashed. The
+numbers are e-commerce sizes: 2048 is Shopify's recommended product photo, 1024 the
+main and description images on a typical product page.
+
+Each chip sets `contain`, which is not an implementation detail. With no height,
+`exact` fails validation outright and `cover` has nothing to crop against, so
+`contain` is the only mode under which a width alone means "at most this wide, shape
+untouched". `allowUpscale` is left as the user set it; it answers a different
+question.
 
 **Acceptance**
 - Setting one dimension derives the other from the aspect ratio
 - `exact` requires both dimensions and says so if one is missing
 - `allowUpscale: false` leaves smaller images untouched rather than blurring them
 - Large downscales do not alias
+- A width chip clears any height already typed, and lights up only when the resize is
+  exactly what it would have produced
+- The chips appear wherever resize does, not only on its own page
 
 ---
 

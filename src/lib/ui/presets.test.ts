@@ -1,6 +1,14 @@
-import { findPreset, presets } from '@config/presets'
+import { limits } from '@config/limits'
+import { findPreset, presets, widthPresets } from '@config/presets'
 import { describe, expect, it } from 'vitest'
-import { applyPreset, initialBuilderState, toPipeline } from './pipelineState'
+import {
+  applyPreset,
+  initialBuilderState,
+  isWidthOnly,
+  setDimension,
+  toPipeline,
+  widthOnly,
+} from './pipelineState'
 
 const base = () => initialBuilderState(undefined)
 
@@ -118,5 +126,133 @@ describe('applyPreset', () => {
       if (!entry.resize) continue
       expect(entry.hint).toMatch(/up to/i)
     }
+  })
+})
+
+describe('width presets', () => {
+  it('offers each width once', () => {
+    const widths = widthPresets.map((entry) => entry.width)
+    expect(new Set(widths).size).toBe(widths.length)
+  })
+
+  it('lists them largest first, so the row reads as a set of ceilings', () => {
+    const widths = widthPresets.map((entry) => entry.width)
+    expect(widths).toEqual([...widths].sort((a, b) => b - a))
+  })
+
+  it('stays inside the width the engine will accept', () => {
+    for (const entry of widthPresets) {
+      expect(entry.width).toBeGreaterThan(0)
+      expect(Number.isInteger(entry.width)).toBe(true)
+      expect(entry.width).toBeLessThanOrEqual(limits.maxWidth)
+    }
+  })
+
+  it('says what every width is for, since the chip shows only a number', () => {
+    for (const entry of widthPresets) {
+      expect(entry.use.length).toBeGreaterThan(20)
+    }
+  })
+
+  it('covers the width every sized preset resizes to', () => {
+    // A preset and a chip that disagree on the same job would offer two routes to
+    // two different answers.
+    const widths = new Set(widthPresets.map((entry) => entry.width))
+
+    for (const entry of presets) {
+      if (entry.resize?.mode !== 'contain' || entry.resize.width === undefined) continue
+      expect(widths).toContain(entry.resize.width)
+    }
+  })
+})
+
+describe('widthOnly', () => {
+  const resize = (overrides: Partial<ReturnType<typeof initialBuilderState>['resize']> = {}) => ({
+    ...base().resize,
+    ...overrides,
+  })
+
+  it('sets the width and leaves the height to the aspect ratio', () => {
+    const next = widthOnly(resize({ width: 500, height: 500 }), 1024)
+
+    expect(next.width).toBe(1024)
+    expect('height' in next).toBe(false)
+  })
+
+  it('forces contain, the only mode that means "at most this wide"', () => {
+    // 'exact' with one dimension fails validation outright and 'cover' has nothing
+    // to crop against, so neither can express a width-only resize.
+    for (const mode of ['contain', 'cover', 'exact'] as const) {
+      expect(widthOnly(resize({ mode }), 800).mode).toBe('contain')
+    }
+  })
+
+  it('leaves the enlarging choice alone, which is a different question', () => {
+    expect(widthOnly(resize({ allowUpscale: true }), 800).allowUpscale).toBe(true)
+    expect(widthOnly(resize({ allowUpscale: false }), 800).allowUpscale).toBe(false)
+  })
+
+  it('produces a resize the engine accepts for every offered width', () => {
+    for (const entry of widthPresets) {
+      const state = { ...base(), resize: widthOnly(base().resize, entry.width) }
+      const [transform] = toPipeline({
+        ...state,
+        enabled: { ...state.enabled, resize: true },
+      }).transforms
+
+      expect(transform).toEqual({
+        kind: 'resize',
+        mode: 'contain',
+        allowUpscale: false,
+        width: entry.width,
+      })
+    }
+  })
+})
+
+describe('isWidthOnly', () => {
+  it('recognises what widthOnly produced', () => {
+    expect(isWidthOnly(widthOnly(base().resize, 1024), 1024)).toBe(true)
+  })
+
+  it('rejects a different width', () => {
+    expect(isWidthOnly(widthOnly(base().resize, 1024), 2048)).toBe(false)
+  })
+
+  it('rejects the same width once a height is set, since that is a box', () => {
+    const boxed = setDimension(widthOnly(base().resize, 1024), 'height', 1024)
+
+    expect(isWidthOnly(boxed, 1024)).toBe(false)
+  })
+
+  it('rejects the same width under another fit mode', () => {
+    const covered = { ...widthOnly(base().resize, 1024), mode: 'cover' as const }
+
+    expect(isWidthOnly(covered, 1024)).toBe(false)
+  })
+})
+
+describe('setDimension', () => {
+  it('omits a cleared dimension rather than setting it undefined', () => {
+    const next = setDimension({ ...base().resize, width: 800, height: 600 }, 'height', undefined)
+
+    expect('height' in next).toBe(false)
+    expect(next.width).toBe(800)
+  })
+
+  it('leaves the other axis and the mode untouched', () => {
+    const next = setDimension(
+      { kind: 'resize', mode: 'cover', width: 800, height: 600, allowUpscale: true },
+      'width',
+      1024,
+    )
+
+    expect(next).toEqual({
+      kind: 'resize',
+      mode: 'cover',
+      width: 1024,
+      height: 600,
+      allowUpscale: true,
+    })
   })
 })

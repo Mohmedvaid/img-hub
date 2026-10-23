@@ -3,13 +3,13 @@
 Where the project is **right now**. Regenerated from [BACKLOG.md](BACKLOG.md) — this
 file is a view, not a source. If the two disagree, the backlog is right.
 
-**Last updated:** 2026-09-13 · **Release:** `v0.4.0` · **Phase:** 1, 2 and 4 complete; 5 (launch) in progress
+**Last updated:** 2026-10-22 · **Release:** `v0.4.0` · **Phase:** 1, 2 and 4 complete; 5 (launch) in progress
 
 ## At a glance
 
 | | Count |
 |---|---|
-| Done | 39 |
+| Done | 40 |
 | In progress | 3 (Phase 5, launch) |
 | To do (carried) | 2 reverted with reasons, 1 blocked on Mohmed |
 | Blocked | 0 |
@@ -17,8 +17,16 @@ file is a view, not a source. If the two disagree, the backlog is right.
 ## In progress
 
 **Phase 5, getting the site live.** `P5-01` (about, contact, privacy), `P5-02`
-(static export), `P5-04` (Cloudflare Web Analytics) and `P5-08` (GitHub Pages) are
-done.
+(static export), `P5-04` (Cloudflare Web Analytics), `P5-08` (GitHub Pages) and
+`P5-09` (one-click widths) are done.
+
+**One-click widths** (`P5-09`) are in the resize fields wherever resize is on,
+including the conversion pages: 2048, 1920, 1200, 1024, 800, 400, each setting a
+width and clearing the height. The numbers are e-commerce sizes — 2048 is Shopify's
+recommended product photo. Presets moved above both columns, where a phone can reach
+them without scrolling past the whole builder, and the line of prose each one carried
+now sits behind an info button. The settings column is shorter for it, which helps
+`P5-06` without closing it.
 
 **Hosting moved to GitHub Pages** (`P5-08`, superseding `P5-03`), at
 https://mohmedvaid.github.io/img-hub/, noindex, published by
@@ -78,7 +86,7 @@ The app works end to end. Start by running it:
 
 ```bash
 pnpm install && pnpm dev        # http://localhost:3000
-pnpm verify                     # lint + typecheck + 584 tests + build
+pnpm verify                     # lint + typecheck + 618 tests + build
 pnpm test:coverage              # same tests, with the 80% thresholds enforced
 pnpm smoke                      # 19 browser checks; needs the server running
 ```
@@ -229,7 +237,7 @@ Tagged in git with an entry in [CHANGELOG.md](../CHANGELOG.md). Backfilled on
 | Check | State |
 |---|---|
 | CI | Passing |
-| Tests | 584 passing at 96.7% statement coverage, plus a 19-check smoke suite and a 580-check SEO audit, both run against a subpath build |
+| Tests | 618 passing at 97.6% statement coverage, plus a 19-check smoke suite and a 580-check SEO audit, both run against a subpath build |
 | Typecheck | Clean, strict mode |
 | Lint | Clean |
 | Production build | Passing; publishes to https://mohmedvaid.github.io/img-hub/ on merge to `main` |

@@ -1,7 +1,7 @@
 'use client'
 
 import { limits, pipelineLimits } from '@config/limits'
-import { type Preset, presets } from '@config/presets'
+import { type Preset, presets, widthPresets } from '@config/presets'
 import { zipSync } from 'fflate'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { type PipelineError, pipelineError } from '@/lib/pipeline/errors'
@@ -30,12 +30,16 @@ import {
   type BuilderState,
   hasWork,
   initialBuilderState,
+  isWidthOnly,
+  setDimension,
   toPipeline,
+  widthOnly,
 } from '@/lib/ui/pipelineState'
 import { DropZone } from './DropZone'
 import { ErrorBoundary } from './ErrorBoundary'
 import { FeatureToggle } from './FeatureToggle'
 import { ImagePreview } from './ImagePreview'
+import { InfoPopover, InfoRow } from './InfoPopover'
 import { OrientationControls } from './OrientationControls'
 import { ResultsList } from './ResultsList'
 
@@ -66,10 +70,7 @@ export function ImageToolkit({ primary, preset }: ImageToolkitProps) {
     return () => client.dispose()
   }, [])
 
-  const optional = useMemo(
-    () => availableOptionalFeatures(primary ?? ('__none__' as FeatureId)),
-    [primary],
-  )
+  const optional = useMemo(() => availableOptionalFeatures(primary), [primary])
 
   /**
    * Changing orientation moves the crop box with it.
@@ -172,90 +173,103 @@ export function ImageToolkit({ primary, preset }: ImageToolkitProps) {
   const mixedSizes = builder.enabled.crop && count > 1
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-      <section className="flex min-w-0 flex-1 flex-col gap-4">
-        <PreviewPane
-          file={previewFile}
-          count={count}
-          builder={builder}
-          cropRatio={cropRatio}
-          onSourceLoad={setSourceFrame}
-          onCropChange={(crop) => setBuilder((c) => ({ ...c, crop }))}
-        />
-
-        <DropZone onFiles={addFiles} disabled={batch.running} count={count} />
-
-        {skipped ? (
-          <p className="rounded-[--radius-sm] bg-warning/10 px-3 py-2 text-warning text-sm">
-            {skipped}
-          </p>
-        ) : null}
-
-        <BatchSummary files={batch.files} />
-
-        <ErrorBoundary label="results list">
-          <ResultsList
-            files={batch.files}
-            onRemove={(id) => dispatch({ type: 'remove', id })}
-            onDownload={downloadOne}
-            busy={batch.running}
-          />
-        </ErrorBoundary>
-      </section>
-
-      <aside className="flex w-full shrink-0 flex-col gap-3 lg:w-80">
-        {primary ? (
-          <PrimaryPanel primary={primary} builder={builder} setBuilder={setBuilder} />
-        ) : (
-          <PresetPicker
-            active={activePreset}
-            onPick={(chosen) => {
-              setActivePreset(chosen.id)
-              setBuilder((current) => applyPreset(current, chosen))
-            }}
-          />
-        )}
-
-        {showOrientation ? (
-          <Panel title="Orientation">
-            <OrientationControls
-              orientation={builder.orientation}
-              onChange={(next) => applyOrientation(next, true)}
-            />
-          </Panel>
-        ) : null}
-
-        {showCropRatio ? (
-          <Panel title="Crop ratio">
-            <RatioPicker active={cropRatio} onPick={setCropRatio} mixedSizes={mixedSizes} />
-          </Panel>
-        ) : null}
-
-        <FeatureChecklist
-          optional={optional}
-          builder={builder}
-          setBuilder={setBuilder}
-          onToggle={setEnabled}
-        />
-
-        <TransparencyWarning builder={builder} files={batch.files} />
-        <LosslessQualityNote builder={builder} files={batch.files} />
-
-        <RunControls
-          count={count}
-          ready={ready}
-          running={batch.running}
-          onRun={() => void run()}
-          onClear={() => {
-            dispatch({ type: 'clear' })
-            setSkipped(undefined)
+    <div className="flex flex-col gap-6">
+      {/*
+       * Presets sit above the columns rather than at the top of the settings column.
+       * They are the fastest route to a finished file, and in the column they were
+       * below the preview, the dropzone and the results on every screen narrower than
+       * `lg` — the first thing a visitor should see, reachable only by scrolling past
+       * everything else.
+       */}
+      {primary ? null : (
+        <PresetPicker
+          active={activePreset}
+          onPick={(chosen) => {
+            setActivePreset(chosen.id)
+            setBuilder((current) => applyPreset(current, chosen))
           }}
         />
+      )}
 
-        {count > 0 && !hasWork(builder) ? (
-          <p className="text-fg-muted text-xs">Pick at least one thing to do.</p>
-        ) : null}
-      </aside>
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <section className="flex min-w-0 flex-1 flex-col gap-4">
+          <PreviewPane
+            file={previewFile}
+            count={count}
+            builder={builder}
+            cropRatio={cropRatio}
+            onSourceLoad={setSourceFrame}
+            onCropChange={(crop) => setBuilder((c) => ({ ...c, crop }))}
+          />
+
+          <DropZone onFiles={addFiles} disabled={batch.running} count={count} />
+
+          {skipped ? (
+            <p className="rounded-[--radius-sm] bg-warning/10 px-3 py-2 text-warning text-sm">
+              {skipped}
+            </p>
+          ) : null}
+
+          <BatchSummary files={batch.files} />
+
+          <ErrorBoundary label="results list">
+            <ResultsList
+              files={batch.files}
+              onRemove={(id) => dispatch({ type: 'remove', id })}
+              onDownload={downloadOne}
+              busy={batch.running}
+            />
+          </ErrorBoundary>
+        </section>
+
+        <aside className="flex w-full shrink-0 flex-col gap-3 lg:w-80">
+          {primary ? (
+            <PrimaryPanel primary={primary} builder={builder} setBuilder={setBuilder} />
+          ) : (
+            <p className="font-medium text-fg-primary text-sm">Or choose your own</p>
+          )}
+
+          {showOrientation ? (
+            <Panel title="Orientation">
+              <OrientationControls
+                orientation={builder.orientation}
+                onChange={(next) => applyOrientation(next, true)}
+              />
+            </Panel>
+          ) : null}
+
+          {showCropRatio ? (
+            <Panel title="Crop ratio">
+              <RatioPicker active={cropRatio} onPick={setCropRatio} mixedSizes={mixedSizes} />
+            </Panel>
+          ) : null}
+
+          <FeatureChecklist
+            optional={optional}
+            builder={builder}
+            setBuilder={setBuilder}
+            onToggle={setEnabled}
+          />
+
+          <TransparencyWarning builder={builder} files={batch.files} />
+          <LosslessQualityNote builder={builder} files={batch.files} />
+
+          <RunControls
+            count={count}
+            ready={ready}
+            running={batch.running}
+            onRun={() => void run()}
+            onClear={() => {
+              dispatch({ type: 'clear' })
+              setSkipped(undefined)
+            }}
+          />
+
+          {count > 0 && !hasWork(builder) ? (
+            <p className="text-fg-muted text-xs">Pick at least one thing to do.</p>
+          ) : null}
+        </aside>
+      </div>
     </div>
   )
 }
@@ -469,6 +483,14 @@ function RunControls({
   )
 }
 
+/**
+ * The presets, as one wrapped row of buttons.
+ *
+ * Each used to carry its own line of prose, which made the list taller than the
+ * controls it was meant to save the visitor from. The prose is the same for everyone
+ * and read once, so it moved behind the info button — the row stays scannable, and
+ * nothing was deleted.
+ */
 function PresetPicker({
   active,
   onPick,
@@ -477,26 +499,39 @@ function PresetPicker({
   onPick: (preset: Preset) => void
 }) {
   return (
-    <div>
-      <p className="font-medium text-fg-primary text-sm">Start from a preset</p>
-      <div className="mt-2 flex flex-col gap-1.5">
+    <div className="rounded-[--radius-md] border border-border bg-bg-raised p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="font-medium text-fg-primary text-sm">Start from a preset</p>
+          <p className="text-fg-muted text-xs">
+            One click sets the size, format and quality for a common job.
+          </p>
+        </div>
+        <InfoPopover title="What each preset does">
+          {presets.map((preset) => (
+            <InfoRow key={preset.id} term={preset.label}>
+              {preset.hint}
+            </InfoRow>
+          ))}
+        </InfoPopover>
+      </div>
+
+      <div className="mt-2.5 flex flex-wrap gap-1.5">
         {presets.map((preset) => (
           <button
             key={preset.id}
             type="button"
             onClick={() => onPick(preset)}
-            className={`rounded-[--radius-md] border px-3 py-2 text-left transition-colors ${
+            className={`rounded-[--radius-sm] border px-2.5 py-1.5 font-medium text-xs transition-colors ${
               active === preset.id
-                ? 'border-brand bg-brand-subtle'
-                : 'border-border bg-bg-raised hover:border-border-strong'
+                ? 'border-brand bg-brand text-brand-fg'
+                : 'border-border bg-bg-base text-fg-secondary hover:border-border-strong hover:text-fg-primary'
             }`}
           >
-            <span className="block font-medium text-fg-primary text-sm">{preset.label}</span>
-            <span className="block text-fg-muted text-xs">{preset.hint}</span>
+            {preset.label}
           </button>
         ))}
       </div>
-      <p className="mt-3 font-medium text-fg-primary text-sm">Or choose your own</p>
     </div>
   )
 }
@@ -581,6 +616,11 @@ function ResizeFields({
 }) {
   return (
     <div className="flex flex-col gap-2">
+      <WidthPresets
+        resize={builder.resize}
+        onPick={(width) => setBuilder((c) => ({ ...c, resize: widthOnly(c.resize, width) }))}
+      />
+
       <div className="flex gap-2">
         <NumberField
           label="Width"
@@ -632,6 +672,58 @@ function ResizeFields({
   )
 }
 
+/**
+ * One-click widths, above the two number fields.
+ *
+ * Width only, with the height left on auto. Almost every target someone resizes for
+ * is specified as a width — a theme's product image, a page column — and typing a
+ * height alongside it is how an image ends up squashed. The fields below still take
+ * both for anyone who genuinely needs a box.
+ */
+function WidthPresets({
+  resize,
+  onPick,
+}: {
+  resize: BuilderState['resize']
+  onPick: (width: number) => void
+}) {
+  return (
+    <div>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-fg-secondary text-xs">Common widths</p>
+        <InfoPopover title="What these widths are for">
+          {widthPresets.map((entry) => (
+            <InfoRow key={entry.width} term={`${entry.width}px`}>
+              {entry.use}
+            </InfoRow>
+          ))}
+          <p className="mt-1.5 text-fg-muted text-xs leading-snug">
+            Each is a ceiling, with the height following the image. Nothing is enlarged unless you
+            tick Allow enlarging.
+          </p>
+        </InfoPopover>
+      </div>
+
+      <div className="mt-1 flex flex-wrap gap-1">
+        {widthPresets.map((entry) => (
+          <button
+            key={entry.width}
+            type="button"
+            onClick={() => onPick(entry.width)}
+            className={`rounded-[--radius-sm] border px-1.5 py-1 text-xs tabular-nums transition-colors ${
+              isWidthOnly(resize, entry.width)
+                ? 'border-brand bg-brand text-brand-fg'
+                : 'border-border text-fg-secondary hover:bg-bg-sunken'
+            }`}
+          >
+            {entry.width}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function FormatField({
   value,
   onChange,
@@ -678,27 +770,6 @@ function QualityField({ value, onChange }: { value: number; onChange: (quality: 
       />
     </label>
   )
-}
-
-/**
- * Clearing a dimension omits it rather than setting it undefined, so an empty field
- * means "derive this from the aspect ratio" — what the engine expects.
- */
-function setDimension(
-  resize: BuilderState['resize'],
-  axis: 'width' | 'height',
-  value: number | undefined,
-): BuilderState['resize'] {
-  const width = axis === 'width' ? value : resize.width
-  const height = axis === 'height' ? value : resize.height
-
-  return {
-    kind: 'resize',
-    mode: resize.mode,
-    allowUpscale: resize.allowUpscale,
-    ...(width === undefined ? {} : { width }),
-    ...(height === undefined ? {} : { height }),
-  }
 }
 
 function NumberField({

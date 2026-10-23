@@ -133,13 +133,16 @@ export function isFeatureId(value: string): value is FeatureId {
  *
  * Derived rather than listed per page, so adding a feature makes it available
  * everywhere at once instead of needing every tool definition updated.
+ *
+ * No primary means the home builder, where every feature is optional and nothing is
+ * filtered out.
  */
-export function optionalFeatures(primary: FeatureId): readonly FeatureInfo[] {
+export function optionalFeatures(primary?: FeatureId): readonly FeatureInfo[] {
   return allFeatures().filter((feature) => feature.id !== primary)
 }
 
 /** Optional features that actually have controls to show today. */
-export function availableOptionalFeatures(primary: FeatureId): readonly FeatureInfo[] {
+export function availableOptionalFeatures(primary?: FeatureId): readonly FeatureInfo[] {
   return optionalFeatures(primary).filter((feature) => feature.available)
 }
 
