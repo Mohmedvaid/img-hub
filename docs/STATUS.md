@@ -9,7 +9,7 @@ file is a view, not a source. If the two disagree, the backlog is right.
 
 | | Count |
 |---|---|
-| Done | 40 |
+| Done | 41 |
 | In progress | 3 (Phase 5, launch) |
 | To do (carried) | 2 reverted with reasons, 1 blocked on Mohmed |
 | Blocked | 0 |
@@ -18,7 +18,7 @@ file is a view, not a source. If the two disagree, the backlog is right.
 
 **Phase 5, getting the site live.** `P5-01` (about, contact, privacy), `P5-02`
 (static export), `P5-04` (Cloudflare Web Analytics), `P5-08` (GitHub Pages) and
-`P5-09` (one-click widths) are done.
+`P5-09` (one-click widths) and `P5-10` (the product page preset) are done.
 
 **One-click widths** (`P5-09`) are in the resize fields wherever resize is on,
 including the conversion pages: 2048, 1920, 1200, 1024, 800, 400, each setting a
@@ -26,7 +26,9 @@ width and clearing the height. The numbers are e-commerce sizes — 2048 is Shop
 recommended product photo. Presets moved above both columns, where a phone can reach
 them without scrolling past the whole builder, and the line of prose each one carried
 now sits behind an info button. The settings column is shorter for it, which helps
-`P5-06` without closing it.
+`P5-06` without closing it. The store preset is **Product page image**, 1024px WebP
+(`P5-10`) — the width a theme renders, rather than the 2048 master Shopify would
+re-derive variants from. The 2048 chip is still there for anyone uploading a master.
 
 **Hosting moved to GitHub Pages** (`P5-08`, superseding `P5-03`), at
 https://mohmedvaid.github.io/img-hub/, noindex, published by

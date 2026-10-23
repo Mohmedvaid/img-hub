@@ -528,11 +528,11 @@ describe('ImageToolkit — presets', () => {
     }
   })
 
-  it('offers a Shopify preset that converts to WebP, which is what a store wants', async () => {
+  it('sizes a product page image to the width a store theme renders, as WebP', async () => {
     render(<ImageToolkit />)
     await addFiles(imageFile('product.png'))
 
-    await userEvent.click(screen.getByRole('button', { name: 'Shopify product' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Product page image' }))
     await userEvent.click(apply())
 
     await waitFor(() => expect(worker.run).toHaveBeenCalled())
@@ -541,7 +541,7 @@ describe('ImageToolkit — presets', () => {
       kind: 'resize',
       mode: 'contain',
       allowUpscale: false,
-      width: 2048,
+      width: 1024,
     })
   })
 })
