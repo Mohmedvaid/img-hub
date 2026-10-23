@@ -1,12 +1,14 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CropTransform } from '@/lib/pipeline/operations/crop'
 import {
+  centreOf,
   clampRect,
   defaultCropRect,
   type Frame,
   fitAspect,
+  maxAspectRect,
   orientedFrame,
   type Rect,
 } from '@/lib/ui/cropGeometry'
@@ -93,6 +95,35 @@ export function ImagePreview({
     if (frame && crop && crop.value.width === 0) {
       crop.onChange({ kind: 'crop', ...defaultCropRect(frame) })
     }
+  }, [frame, crop])
+
+  /**
+   * Picking a ratio reshapes the box there and then.
+   *
+   * It used to apply on the next commit, so the selection kept its old shape until
+   * the user happened to drag a corner — the control looked broken, and anyone who
+   * picked a ratio and pressed Apply got the shape they had not asked for.
+   *
+   * The new box is the largest of that ratio that fits, centred where the old one
+   * was — see `maxAspectRect` for why choosing a ratio cannot use the same shrink
+   * rule a drag does.
+   *
+   * Keyed on the ratio rather than the rectangle, so it fires once per choice and
+   * never fights a drag. `Free` is recorded as applied and changes nothing, because
+   * it means "stop constraining", not "undo what I drew". A box not yet seeded is
+   * left for the next run rather than recorded, so the ratio still reaches it once
+   * dimensions arrive.
+   */
+  const appliedRatio = useRef<number>(undefined)
+
+  useEffect(() => {
+    if (!frame || !crop || crop.value.width === 0) return
+    if (crop.ratio === appliedRatio.current) return
+
+    appliedRatio.current = crop.ratio
+    if (crop.ratio === undefined) return
+
+    crop.onChange({ kind: 'crop', ...maxAspectRect(crop.ratio, frame, centreOf(crop.value)) })
   }, [frame, crop])
 
   const commitCrop = useCallback(

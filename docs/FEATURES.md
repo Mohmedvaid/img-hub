@@ -56,6 +56,12 @@ deleting it would leave "1024" meaning nothing to a first-time visitor. The info
 button is not a tooltip: hover does not exist on a phone, and the content is a list
 that has to stay open while it is read.
 
+**Reset settings** puts the page back on the state it opens in — its own primary
+feature and preset, no active preset, no crop ratio. A preset switches four features
+on at once, and undoing one by hand meant remembering which four. Files are left
+alone: `Clear` is for those, and someone resetting the settings is usually about to
+run the same batch a different way.
+
 **Not included:** arbitrary operation reordering. The order is what makes a saved
 pipeline mean the same thing every time it runs, so it is a correctness guarantee
 rather than a limitation to remove later.
@@ -215,11 +221,19 @@ work, and not for the web.
 
 ## Crop
 
-**Status:** Shipped in v0.2 · **Tickets:** P1-10
+**Status:** Shipped in v0.2 · **Tickets:** P1-10, P5-11
 
 Drag a selection over a preview of the first file. Corner handles resize it, the body
-drags it, and arrow keys nudge it (shift for larger steps). Aspect presets constrain
-it around wherever it already is.
+drags it, and arrow keys nudge it (shift for larger steps).
+
+Picking an aspect preset reshapes the box immediately, centred where it already was.
+Choosing a ratio and dragging under one use different rules, deliberately. A drag is
+constrained by `fitAspect`, which only ever shrinks, because growing a box mid-drag
+can push it off an edge. A *choice* uses `maxAspectRect` — the largest box of that
+ratio the frame holds — because picking a ratio says something about shape, not
+about size, and shrinking from the current box walks the selection down to nothing
+across a run of ratios. `maxAspectRect` is idempotent, so repeating a choice cannot
+move anything.
 
 The box is measured against the **rotated** image, which is what the preview shows.
 Changing rotation moves the box with it, so the region stays selected rather than
@@ -229,6 +243,9 @@ jumping — see ADR-0006.
 - The seeded box is a centred 80% of the frame, so handles are immediately grabbable
 - Output dimensions equal the box exactly
 - An aspect preset produces that ratio and stays inside the frame
+- It reshapes the box on the click, with no drag in between, and clicking several in
+  turn leaves a usable box every time
+- `Free` stops constraining and leaves the box as it is, rather than resetting it
 - Rotating after drawing keeps the same region selected
 - A box extending past an edge is trimmed rather than failing; only a box entirely
   outside the image is an error
