@@ -37,6 +37,15 @@ export type Preset = {
 
 export const presets: readonly Preset[] = [
   {
+    id: 'shopify-product',
+    label: 'Shopify product',
+    hint: 'Up to 2048px wide, WebP, compressed. Shopify’s recommended photo size.',
+    features: ['resize', 'convert', 'compress', 'metadata'],
+    resize: { mode: 'contain', width: 2048 },
+    outputFormat: 'webp',
+    quality: 82,
+  },
+  {
     id: 'web',
     label: 'For a web page',
     hint: 'Up to 1920px wide, WebP, compressed. The usual answer for a site image.',
@@ -83,3 +92,35 @@ export const presets: readonly Preset[] = [
 export function findPreset(id: string): Preset | undefined {
   return presets.find((preset) => preset.id === id)
 }
+
+/**
+ * One-click widths for the resize fields, as a ceiling with the height left to follow
+ * the aspect ratio.
+ *
+ * Width-only is the whole point. A store image is specified by how wide the theme
+ * renders it; the height is whatever the product happens to be, and typing a second
+ * number is how someone accidentally squashes a photo. Clicking one of these sets
+ * `contain` and clears the height, which is the only combination that means "at most
+ * this wide, shape untouched".
+ *
+ * `use` is what the number is for, in the words someone would use to ask for it. The
+ * chips show the number alone — six labelled buttons is a wall of text — and the
+ * explanations sit behind the info button beside them.
+ *
+ * Largest first: these are ceilings, and the master image is the one most people
+ * want. Every value is checked against `limits.maxWidth` by its test.
+ */
+export type WidthPreset = {
+  readonly width: number
+  /** What this width is for. One line, shown in the info panel. */
+  readonly use: string
+}
+
+export const widthPresets: readonly WidthPreset[] = [
+  { width: 2048, use: 'Shopify’s recommended product photo. Leaves room for zoom.' },
+  { width: 1920, use: 'A full-width image on a web page. The general-purpose answer.' },
+  { width: 1200, use: 'A large gallery image on most product pages, and an email attachment.' },
+  { width: 1024, use: 'The main product image, and description images, on a typical page.' },
+  { width: 800, use: 'Collection grids, and the smallest size zoom still looks sharp at.' },
+  { width: 400, use: 'Thumbnails, cart rows and swatches.' },
+] as const

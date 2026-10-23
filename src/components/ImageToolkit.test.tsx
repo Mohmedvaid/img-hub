@@ -1,3 +1,4 @@
+import { presets, widthPresets } from '@config/presets'
 import { findTool } from '@config/tools'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -507,5 +508,137 @@ describe('ImageToolkit — presets', () => {
 
     await waitFor(() => expect(worker.run).toHaveBeenCalled())
     expect(lastPipeline().transforms.some((transform) => transform.kind === 'resize')).toBe(true)
+  })
+
+  it('names every preset as a button, with no prose on the buttons themselves', () => {
+    render(<ImageToolkit />)
+
+    for (const preset of presets) {
+      expect(screen.getByRole('button', { name: preset.label })).toBeInTheDocument()
+      expect(screen.queryByText(preset.hint)).not.toBeInTheDocument()
+    }
+  })
+
+  it('explains what each preset does behind the info button', async () => {
+    render(<ImageToolkit />)
+    await userEvent.click(screen.getByRole('button', { name: 'What each preset does' }))
+
+    for (const preset of presets) {
+      expect(screen.getByText(preset.hint)).toBeInTheDocument()
+    }
+  })
+
+  it('offers a Shopify preset that converts to WebP, which is what a store wants', async () => {
+    render(<ImageToolkit />)
+    await addFiles(imageFile('product.png'))
+
+    await userEvent.click(screen.getByRole('button', { name: 'Shopify product' }))
+    await userEvent.click(apply())
+
+    await waitFor(() => expect(worker.run).toHaveBeenCalled())
+    expect(lastPipeline().output.format).toBe('webp')
+    expect(lastPipeline().transforms).toContainEqual({
+      kind: 'resize',
+      mode: 'contain',
+      allowUpscale: false,
+      width: 2048,
+    })
+  })
+})
+
+describe('ImageToolkit — one-click widths', () => {
+  /** The chip shows the number alone, so match it exactly. */
+  const widthChip = (width: number) => screen.getByRole('button', { name: String(width) })
+
+  it('offers every configured width on the resize page', () => {
+    render(<ImageToolkit primary="resize" />)
+
+    for (const entry of widthPresets) {
+      expect(widthChip(entry.width)).toBeInTheDocument()
+    }
+  })
+
+  it('sends a width with no height, so the shape is left alone', async () => {
+    render(<ImageToolkit primary="resize" />)
+    await addFiles(imageFile('a.png'))
+
+    await userEvent.click(widthChip(1024))
+    await userEvent.click(apply())
+
+    await waitFor(() => expect(worker.run).toHaveBeenCalled())
+    expect(lastPipeline().transforms).toContainEqual({
+      kind: 'resize',
+      mode: 'contain',
+      allowUpscale: false,
+      width: 1024,
+    })
+  })
+
+  it('clears a height already typed in, since a box is not what was asked for', async () => {
+    render(<ImageToolkit primary="resize" />)
+    await addFiles(imageFile('a.png'))
+
+    await userEvent.type(screen.getByLabelText('Height'), '600')
+    await userEvent.click(widthChip(2048))
+    await userEvent.click(apply())
+
+    await waitFor(() => expect(worker.run).toHaveBeenCalled())
+    const [resize] = lastPipeline().transforms
+    expect(resize).toEqual({
+      kind: 'resize',
+      mode: 'contain',
+      allowUpscale: false,
+      width: 2048,
+    })
+    expect(screen.getByLabelText('Height')).toHaveValue(null)
+  })
+
+  it('leaves the fit mode on contain, the only one a width alone can mean', async () => {
+    render(<ImageToolkit primary="resize" />)
+    await addFiles(imageFile('a.png'))
+
+    await userEvent.selectOptions(screen.getByLabelText('Fit'), 'cover')
+    await userEvent.click(widthChip(800))
+    await userEvent.click(apply())
+
+    await waitFor(() => expect(worker.run).toHaveBeenCalled())
+    expect(screen.getByLabelText('Fit')).toHaveValue('contain')
+  })
+
+  it('keeps the enlarging choice, which is about a different thing', async () => {
+    render(<ImageToolkit primary="resize" />)
+
+    await userEvent.click(screen.getByLabelText('Allow enlarging'))
+    await userEvent.click(widthChip(400))
+
+    expect(screen.getByLabelText('Allow enlarging')).toBeChecked()
+  })
+
+  it('shows the chosen width in the field, so the two never disagree', async () => {
+    render(<ImageToolkit primary="resize" />)
+
+    await userEvent.click(widthChip(1200))
+
+    expect(screen.getByLabelText('Width')).toHaveValue(1200)
+  })
+
+  it('says what each width is for behind the info button', async () => {
+    render(<ImageToolkit primary="resize" />)
+    await userEvent.click(screen.getByRole('button', { name: 'What these widths are for' }))
+
+    for (const entry of widthPresets) {
+      expect(screen.getByText(entry.use)).toBeInTheDocument()
+    }
+  })
+
+  it('offers them wherever resize is, not only on its own page', async () => {
+    // The Shopify job is png-to-webp with a width, so the chips have to reach the
+    // conversion pages too.
+    render(<ImageToolkit primary="convert" preset={tool('png-to-webp').preset} />)
+    expect(screen.queryByRole('button', { name: '2048' })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByLabelText(/Resize/))
+
+    expect(widthChip(2048)).toBeInTheDocument()
   })
 })

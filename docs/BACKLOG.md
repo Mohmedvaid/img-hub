@@ -692,6 +692,60 @@ than this repo. It does not matter while indexing is off — the per-page `noind
 is what enforces that, which is why it was built as two independent layers — and it is
 one more reason a real domain is needed before indexing (`P5-05`).
 
+### P5-09 · One-click widths for the resize fields, and presets that fit on a screen
+
+**Status:** `done` · **Phase:** 5
+
+Mohmed's own use of the site is Shopify product images: PNG in, WebP out, resized to
+a width his theme asks for. Every run meant typing the same number into the width
+field, and the preset list that was meant to shortcut that sat below the preview, the
+dropzone and the results on anything narrower than `lg`.
+
+Three changes, all in the page layer.
+
+**One-click widths.** `widthPresets` in `config/presets.ts` — 2048, 1920, 1200, 1024,
+800, 400 — render as a chip row above the width and height fields, wherever resize is
+on. They set a width and *clear* the height. Almost every target anyone resizes for is
+specified as a width, and typing a height alongside it is how a photo gets squashed.
+
+The mode is forced to `contain`, which is the meaning rather than a detail: with no
+height, `exact` fails validation outright and `cover` has nothing to crop against, so
+`contain` is the only mode under which a width alone means "at most this wide, shape
+untouched". `allowUpscale` is left alone — it answers a different question, and
+silently clearing it would undo a deliberate choice.
+
+The numbers are e-commerce sizes. 2048 is Shopify's recommended product photo, 1024
+the main and description images on a typical product page. A test asserts every width
+a `contain` preset resizes to is also offered as a chip, so the two routes to the same
+job cannot drift to different answers.
+
+**Presets above the columns, not inside one.** They are the fastest route to a
+finished file; being the last thing reachable on a phone made them useless there. The
+settings column is shorter for it, which helps `P5-06` without closing it.
+
+**The prose moved behind an info button.** Each preset carried a line explaining
+itself, which made the list taller than the controls it was shortcutting. Deleting it
+was not an option — "1024" tells a first-time visitor nothing — so `InfoPopover` holds
+it: a small "i" beside the heading, closing on Escape, on an outside click, or on a
+second press. Not a tooltip; hover does not exist on a phone and the content is a list
+that has to stay open while it is read.
+
+Also folded in, because they were in the way: `setDimension` moved from
+`ImageToolkit.tsx` into `pipelineState.ts` beside the new `widthOnly` and
+`isWidthOnly`, where it is unit-testable without a DOM, and
+`availableOptionalFeatures` takes an optional primary rather than being handed
+`'__none__' as FeatureId` — a cast on a value that is not a `FeatureId`, which is
+exactly what the conventions reject.
+
+Done when: a width chip sets the width, clears the height and lights up only when the
+resize is what it would have produced; the chips appear on the conversion pages too,
+since that is where the Shopify job happens; the presets render above both columns;
+every hint is reachable from an info button; `pnpm verify` passes.
+
+Verified in a browser at 375px and at desktop, on the home builder, `/resize-image`
+and `/png-to-webp`: all six chips fit one row in the settings column at both widths,
+and the info panel stays on screen at 375px.
+
 ---
 
 ## Unscheduled

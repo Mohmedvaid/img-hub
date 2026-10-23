@@ -164,6 +164,48 @@ export function applyPreset(current: BuilderState, preset: Preset): BuilderState
   }
 }
 
+/**
+ * A width-only resize: a ceiling on the width, with the height left to follow the
+ * aspect ratio.
+ *
+ * `contain` is not a detail here, it is the meaning. With no height, `exact` is
+ * invalid outright and `cover` has nothing to crop against, so `contain` is the only
+ * mode under which "at most this wide, shape untouched" is what runs. `allowUpscale`
+ * is the user's own answer to a different question and is left alone.
+ */
+export function widthOnly(resize: ResizeTransform, width: number): ResizeTransform {
+  return { kind: 'resize', mode: 'contain', allowUpscale: resize.allowUpscale, width }
+}
+
+/** Whether the resize is exactly what `widthOnly(_, width)` would have produced. */
+export function isWidthOnly(resize: ResizeTransform, width: number): boolean {
+  return resize.mode === 'contain' && resize.width === width && resize.height === undefined
+}
+
+/**
+ * Sets one axis of a resize, leaving the other alone.
+ *
+ * Clearing a dimension omits it rather than setting it undefined, so an empty field
+ * means "derive this from the aspect ratio" — which is what the engine expects, and
+ * what `exactOptionalPropertyTypes` would otherwise let drift.
+ */
+export function setDimension(
+  resize: ResizeTransform,
+  axis: 'width' | 'height',
+  value: number | undefined,
+): ResizeTransform {
+  const width = axis === 'width' ? value : resize.width
+  const height = axis === 'height' ? value : resize.height
+
+  return {
+    kind: 'resize',
+    mode: resize.mode,
+    allowUpscale: resize.allowUpscale,
+    ...(width === undefined ? {} : { width }),
+    ...(height === undefined ? {} : { height }),
+  }
+}
+
 export function toPipeline(state: BuilderState): Pipeline {
   const transforms: Transform[] = []
 
