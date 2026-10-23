@@ -155,6 +155,36 @@ export function fitAspect(rect: Rect, ratio: number, frame: Frame): Rect {
   return clampRect({ x: centreX - width / 2, y: centreY - height / 2, width, height }, frame)
 }
 
+/**
+ * The largest rectangle of `ratio` that fits the frame, centred where asked.
+ *
+ * Used when a ratio is *chosen*, as opposed to `fitAspect`, which constrains a box
+ * the user is actively dragging. The two have to differ: `fitAspect` only ever
+ * shrinks, so applying it to each click walks the selection down to nothing —
+ * 320x240 to 240x240 to 240x135 to 76x135 across four ratios, all of them legal and
+ * none of them usable.
+ *
+ * Picking a ratio is a statement about shape, not about size, so the answer is the
+ * biggest box of that shape available. Repeating the same choice is then a no-op,
+ * which is what stops this fighting the drag handler.
+ */
+export function maxAspectRect(ratio: number, frame: Frame, centre: { x: number; y: number }): Rect {
+  let width = frame.width
+  let height = width / ratio
+
+  if (height > frame.height) {
+    height = frame.height
+    width = height * ratio
+  }
+
+  return clampRect({ x: centre.x - width / 2, y: centre.y - height / 2, width, height }, frame)
+}
+
+/** The centre of a rectangle, which is what a reshape keeps fixed. */
+export function centreOf(rect: Rect): { x: number; y: number } {
+  return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
+}
+
 /** A sensible starting box: the largest centred rectangle covering 80% of the frame. */
 export function defaultCropRect(frame: Frame): Rect {
   const width = Math.max(1, Math.round(frame.width * 0.8))

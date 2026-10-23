@@ -121,6 +121,20 @@ export function ImageToolkit({ primary, preset }: ImageToolkitProps) {
     [applyOrientation, builder.orientation],
   )
 
+  /**
+   * Back to the state this page opens in.
+   *
+   * There was no way out of a choice short of reloading: a preset switches four
+   * features on at once, and undoing it by hand meant remembering which four. Files
+   * are deliberately left alone — `Clear` is for those, and someone resetting the
+   * settings is usually about to run the same batch a different way.
+   */
+  const resetSettings = useCallback(() => {
+    setBuilder(initialBuilderState(primary, preset))
+    setActivePreset(undefined)
+    setCropRatio(undefined)
+  }, [primary, preset])
+
   const addFiles = useCallback(
     async (files: readonly File[]) => {
       const result = await intakeFiles(files, limits, batch.files.length)
@@ -268,6 +282,14 @@ export function ImageToolkit({ primary, preset }: ImageToolkitProps) {
           {count > 0 && !hasWork(builder) ? (
             <p className="text-fg-muted text-xs">Pick at least one thing to do.</p>
           ) : null}
+
+          <button
+            type="button"
+            onClick={resetSettings}
+            className="self-start text-fg-muted text-xs underline underline-offset-2 transition-colors hover:text-fg-secondary"
+          >
+            Reset settings
+          </button>
         </aside>
       </div>
     </div>

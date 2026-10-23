@@ -377,20 +377,73 @@ describe('ImageToolkit — orientation and crop', () => {
     expect(await screen.findByRole('button', { name: 'Square' })).toBeInTheDocument()
   })
 
-  it('reshapes the box to a ratio once one is chosen', async () => {
+  it('reshapes the box on screen as the ratio is clicked, not on the next drag', async () => {
+    render(<ImageToolkit primary="crop" />)
+    await addFiles(imageFile('a.png'))
+    await loadPreview(400, 300)
+    // 80% of 400x300, before any ratio is asked for.
+    expect(await screen.findByTestId('crop-selection')).toHaveAccessibleName(/320 by 240/)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Square' }))
+
+    // Nothing was dragged. The box itself has to have moved, because it is the only
+    // feedback the picker gives. 300 is the largest square a 400x300 frame holds.
+    expect(screen.getByTestId('crop-selection')).toHaveAccessibleName(/300 by 300/)
+  })
+
+  it('sends the reshaped box to the engine without a drag in between', async () => {
+    render(<ImageToolkit primary="crop" />)
+    await addFiles(imageFile('a.png'))
+    await loadPreview(400, 300)
+    await screen.findByTestId('crop-selection')
+
+    await userEvent.click(screen.getByRole('button', { name: '16:9' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Apply' }))
+
+    await waitFor(() => expect(worker.run).toHaveBeenCalled())
+    const crop = lastPipeline().transforms.find((transform) => transform.kind === 'crop')
+    expect(crop).toMatchObject({ width: 400, height: 225 })
+  })
+
+  it('reshapes again when a second ratio is picked', async () => {
     render(<ImageToolkit primary="crop" />)
     await addFiles(imageFile('a.png'))
     await loadPreview(400, 300)
     await screen.findByTestId('crop-selection')
 
     await userEvent.click(screen.getByRole('button', { name: 'Square' }))
-    // The ratio applies on the next commit, so nudge the box to trigger one.
-    fireEvent.keyDown(screen.getByTestId('crop-selection'), { key: 'ArrowRight' })
-    await userEvent.click(screen.getByRole('button', { name: 'Apply' }))
+    await userEvent.click(screen.getByRole('button', { name: '4:3' }))
 
-    await waitFor(() => expect(worker.run).toHaveBeenCalled())
-    const crop = lastPipeline().transforms.find((transform) => transform.kind === 'crop')
-    expect(crop).toMatchObject({ width: 240, height: 240 })
+    // 4:3 is the frame's own ratio, so it fills it — and crucially it is not the
+    // 240x180 that shrinking from the square would have given.
+    expect(screen.getByTestId('crop-selection')).toHaveAccessibleName(/400 by 300/)
+  })
+
+  it('does not walk the box smaller as ratios are clicked in turn', async () => {
+    // Shrinking from the current box gave 320x240, 240x240, 240x135, 76x135 — each
+    // one legal, the last one useless. Every choice stands on its own now.
+    render(<ImageToolkit primary="crop" />)
+    await addFiles(imageFile('a.png'))
+    await loadPreview(400, 300)
+    await screen.findByTestId('crop-selection')
+
+    for (const name of ['Square', '16:9', '9:16', 'Square']) {
+      await userEvent.click(screen.getByRole('button', { name }))
+    }
+
+    expect(screen.getByTestId('crop-selection')).toHaveAccessibleName(/300 by 300/)
+  })
+
+  it('leaves the box alone on Free, which stops constraining rather than undoing', async () => {
+    render(<ImageToolkit primary="crop" />)
+    await addFiles(imageFile('a.png'))
+    await loadPreview(400, 300)
+    await screen.findByTestId('crop-selection')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Square' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Free' }))
+
+    expect(screen.getByTestId('crop-selection')).toHaveAccessibleName(/300 by 300/)
   })
 
   it('warns that a crop drawn on the first image is trimmed for smaller ones', async () => {
@@ -543,6 +596,64 @@ describe('ImageToolkit — presets', () => {
       allowUpscale: false,
       width: 1024,
     })
+  })
+})
+
+describe('ImageToolkit — resetting settings', () => {
+  const reset = () => screen.getByRole('button', { name: 'Reset settings' })
+
+  it('undoes a preset, which switches on four features at once', async () => {
+    render(<ImageToolkit />)
+    await userEvent.click(screen.getByRole('button', { name: 'Product page image' }))
+    expect(screen.getByRole('checkbox', { name: /Resize/ })).toBeChecked()
+
+    await userEvent.click(reset())
+
+    for (const label of [/Resize/, /Convert format/, /Compress/, /Strip metadata/]) {
+      expect(screen.getByRole('checkbox', { name: label })).not.toBeChecked()
+    }
+  })
+
+  it('puts a tool page back on its own preset rather than on nothing', async () => {
+    render(<ImageToolkit primary="convert" preset={tool('png-to-jpg').preset} />)
+
+    await userEvent.selectOptions(screen.getByLabelText('Format'), 'webp')
+    await userEvent.click(reset())
+
+    expect(screen.getByLabelText('Format')).toHaveValue('jpeg')
+  })
+
+  it('keeps the primary feature on, since the page cannot switch it off', async () => {
+    render(<ImageToolkit primary="resize" />)
+
+    await userEvent.click(screen.getByRole('button', { name: '400' }))
+    await userEvent.click(reset())
+
+    expect(screen.getByLabelText('Width')).toHaveValue(1920)
+  })
+
+  it('leaves the queued files alone, which is what Clear is for', async () => {
+    render(<ImageToolkit />)
+    await addFiles(imageFile('a.png'))
+
+    await userEvent.click(reset())
+
+    expect(within(await screen.findByRole('list')).getByText('a.png')).toBeInTheDocument()
+  })
+
+  it('drops the crop ratio, so the next box is not silently constrained', async () => {
+    render(<ImageToolkit primary="crop" />)
+    await addFiles(imageFile('a.png'))
+    await loadPreview(400, 300)
+    await screen.findByTestId('crop-selection')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Square' }))
+    expect(screen.getByTestId('crop-selection')).toHaveAccessibleName(/300 by 300/)
+
+    await userEvent.click(reset())
+
+    // Reseeded from the image, unconstrained: 80% of 400x300.
+    expect(await screen.findByTestId('crop-selection')).toHaveAccessibleName(/320 by 240/)
   })
 })
 

@@ -765,6 +765,64 @@ is one click away for anyone who wants it.
 Done when: the preset reads "Product page image" and resizes to 1024; `pnpm verify`
 passes.
 
+### P5-11 · Picking a crop ratio did not move the box, and walked it smaller
+
+**Status:** `done` · **Phase:** 5
+
+Two bugs in one control, both reported by Mohmed from using it.
+
+**The box did not move.** The ratio was only applied inside `commitCrop`, which runs
+on a drag or an arrow-key nudge, so clicking "16:9" highlighted the button and left
+the selection exactly as it was. The control looked broken, and anyone who picked a
+ratio and pressed Apply got the shape they had not asked for. The test that covered
+this had the bug written into it as a comment — *"the ratio applies on the next
+commit, so nudge the box to trigger one"* — and passed for it.
+
+The fix is an effect in `ImagePreview` keyed on the ratio rather than the rectangle,
+so it fires once per choice and never fights a drag. `Free` is recorded as applied
+and changes nothing: it means "stop constraining", not "undo what I drew". A box not
+yet seeded is left for the next run rather than recorded, so the ratio still reaches
+it once the image dimensions arrive.
+
+**The box walked smaller.** Fixing the first bug exposed the second. `fitAspect` only
+ever shrinks — deliberately, because growing a box during a drag can push it off an
+edge — so applying it to each click walked the selection down: on a 400×300 image,
+320×240 to 240×240 to 240×135 to 76×135 across four ratios. Every one of them legal,
+the last one useless. Nobody hit it before because it took one drag per shrink.
+
+So choosing a ratio and dragging under one now use different rules, which is the
+point. `maxAspectRect` gives the largest rectangle of that ratio that fits the frame,
+centred where the old box was: choosing a ratio is a statement about shape, not about
+size, so the answer is the biggest box of that shape available, and the user shrinks
+it by dragging if they want to. It is idempotent, which is what stops it fighting the
+drag handler. `fitAspect` is untouched and still constrains drags.
+
+Done when: clicking a ratio reshapes the selection on screen with no drag in between;
+clicking several in turn leaves a usable box every time; `Free` leaves the box alone;
+Apply sends the reshaped box. Covered by unit tests that were confirmed to fail
+against the old behaviour, plus `pnpm smoke` for the geometry the unit suite cannot
+see.
+
+### P5-12 · No way back from a preset
+
+**Status:** `done` · **Phase:** 5
+
+A preset switches four features on at once and there was no way out of it short of
+reloading the page — undoing one by hand meant remembering which four it had touched.
+Mohmed asked for a clear button.
+
+**Reset settings** restores the state the page opens in: `initialBuilderState` with
+the page's own primary feature and preset, the active preset cleared, the crop ratio
+dropped. A tool page lands back on its own preset rather than on nothing, so
+`png-to-jpg` still produces JPEG after a reset.
+
+Files are deliberately untouched. `Clear` is for those, and someone resetting the
+settings is usually about to run the same batch a different way. Two controls doing
+two jobs beats one that does both and surprises somebody.
+
+Done when: resetting undoes a preset, keeps the page's primary feature on, leaves the
+queue alone, and drops the crop ratio; `pnpm verify` passes.
+
 ---
 
 ## Unscheduled

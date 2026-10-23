@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import type { RotateTransform } from '@/lib/pipeline/operations/rotate'
 import {
   ASPECT_RATIOS,
+  centreOf,
   clampRect,
   defaultCropRect,
   fitAspect,
   flipRect,
+  maxAspectRect,
   orientedFrame,
   type Rect,
   remapCrop,
@@ -272,5 +274,86 @@ describe('defaultCropRect', () => {
 
     expect(rect.width).toBeGreaterThanOrEqual(1)
     expect(rect.height).toBeGreaterThanOrEqual(1)
+  })
+})
+
+describe('maxAspectRect', () => {
+  const FRAME = { width: 400, height: 300 }
+  const CENTRE = { x: 200, y: 150 }
+
+  it('fills the frame when the ratio is the frame’s own', () => {
+    expect(maxAspectRect(4 / 3, FRAME, CENTRE)).toEqual({ x: 0, y: 0, width: 400, height: 300 })
+  })
+
+  it('is bounded by the short side for a square', () => {
+    expect(maxAspectRect(1, FRAME, CENTRE)).toEqual({ x: 50, y: 0, width: 300, height: 300 })
+  })
+
+  it('is bounded by the width for a ratio wider than the frame', () => {
+    expect(maxAspectRect(16 / 9, FRAME, CENTRE)).toEqual({ x: 0, y: 38, width: 400, height: 225 })
+  })
+
+  it('is bounded by the height for a ratio taller than the frame', () => {
+    const rect = maxAspectRect(9 / 16, FRAME, CENTRE)
+
+    expect(rect.height).toBe(300)
+    expect(rect.width).toBe(169)
+  })
+
+  it('produces the ratio it was asked for, within a pixel of rounding', () => {
+    for (const { value } of ASPECT_RATIOS) {
+      if (value === undefined) continue
+      const rect = maxAspectRect(value, FRAME, CENTRE)
+
+      expect(rect.width / rect.height).toBeCloseTo(value, 1)
+    }
+  })
+
+  it('stays inside the frame however far off-centre the old box was', () => {
+    for (const centre of [
+      { x: 0, y: 0 },
+      { x: 400, y: 300 },
+      { x: 5, y: 295 },
+    ]) {
+      const rect = maxAspectRect(1, FRAME, centre)
+
+      expect(rect.x).toBeGreaterThanOrEqual(0)
+      expect(rect.y).toBeGreaterThanOrEqual(0)
+      expect(rect.x + rect.width).toBeLessThanOrEqual(FRAME.width)
+      expect(rect.y + rect.height).toBeLessThanOrEqual(FRAME.height)
+    }
+  })
+
+  it('is idempotent, so repeating a choice cannot walk the box anywhere', () => {
+    // This is the property that lets the picker reshape on every click without
+    // fighting itself; fitAspect does not have it, which is why it is not used here.
+    for (const { value } of ASPECT_RATIOS) {
+      if (value === undefined) continue
+      const once = maxAspectRect(value, FRAME, CENTRE)
+      const twice = maxAspectRect(value, FRAME, centreOf(once))
+
+      expect(twice).toEqual(once)
+    }
+  })
+
+  it('never shrinks the way fitAspect does across a run of ratios', () => {
+    // The bug this replaced: 320x240 → 240x240 → 240x135 → 76x135.
+    let shrinking: Rect = { x: 40, y: 30, width: 320, height: 240 }
+    let stable: Rect = shrinking
+
+    for (const ratio of [1, 16 / 9, 9 / 16]) {
+      shrinking = fitAspect(shrinking, ratio, FRAME)
+      stable = maxAspectRect(ratio, FRAME, centreOf(stable))
+    }
+
+    expect(shrinking.height).toBe(135)
+    expect(shrinking.width).toBe(76)
+    expect(stable).toEqual({ x: 116, y: 0, width: 169, height: 300 })
+  })
+})
+
+describe('centreOf', () => {
+  it('is the middle of the rectangle', () => {
+    expect(centreOf({ x: 10, y: 20, width: 100, height: 50 })).toEqual({ x: 60, y: 45 })
   })
 })

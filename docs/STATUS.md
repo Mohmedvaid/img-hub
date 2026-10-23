@@ -9,7 +9,7 @@ file is a view, not a source. If the two disagree, the backlog is right.
 
 | | Count |
 |---|---|
-| Done | 41 |
+| Done | 43 |
 | In progress | 3 (Phase 5, launch) |
 | To do (carried) | 2 reverted with reasons, 1 blocked on Mohmed |
 | Blocked | 0 |
@@ -18,7 +18,8 @@ file is a view, not a source. If the two disagree, the backlog is right.
 
 **Phase 5, getting the site live.** `P5-01` (about, contact, privacy), `P5-02`
 (static export), `P5-04` (Cloudflare Web Analytics), `P5-08` (GitHub Pages) and
-`P5-09` (one-click widths) and `P5-10` (the product page preset) are done.
+`P5-09` (one-click widths), `P5-10` (the product page preset), `P5-11` (the crop
+ratio picker) and `P5-12` (Reset settings) are done.
 
 **One-click widths** (`P5-09`) are in the resize fields wherever resize is on,
 including the conversion pages: 2048, 1920, 1200, 1024, 800, 400, each setting a
@@ -29,6 +30,13 @@ now sits behind an info button. The settings column is shorter for it, which hel
 `P5-06` without closing it. The store preset is **Product page image**, 1024px WebP
 (`P5-10`) — the width a theme renders, rather than the 2048 master Shopify would
 re-derive variants from. The 2048 chip is still there for anyone uploading a master.
+
+**The crop ratio picker reshapes the box as it is clicked** (`P5-11`). It used to
+apply only on the next drag, so the control looked inert; fixing that exposed a
+second bug, where `fitAspect`'s shrink-only rule walked the selection down to nothing
+across a run of ratios. Choosing a ratio now uses `maxAspectRect` — the largest box
+of that shape that fits — while dragging still uses `fitAspect`. **Reset settings**
+(`P5-12`) puts a page back on its own preset without touching the queue.
 
 **Hosting moved to GitHub Pages** (`P5-08`, superseding `P5-03`), at
 https://mohmedvaid.github.io/img-hub/, noindex, published by
@@ -88,7 +96,7 @@ The app works end to end. Start by running it:
 
 ```bash
 pnpm install && pnpm dev        # http://localhost:3000
-pnpm verify                     # lint + typecheck + 618 tests + build
+pnpm verify                     # lint + typecheck + 636 tests + build
 pnpm test:coverage              # same tests, with the 80% thresholds enforced
 pnpm smoke                      # 19 browser checks; needs the server running
 ```
@@ -239,7 +247,7 @@ Tagged in git with an entry in [CHANGELOG.md](../CHANGELOG.md). Backfilled on
 | Check | State |
 |---|---|
 | CI | Passing |
-| Tests | 618 passing at 97.6% statement coverage, plus a 19-check smoke suite and a 580-check SEO audit, both run against a subpath build |
+| Tests | 636 passing at 97.6% statement coverage, plus a 19-check smoke suite and a 580-check SEO audit, both run against a subpath build |
 | Typecheck | Clean, strict mode |
 | Lint | Clean |
 | Production build | Passing; publishes to https://mohmedvaid.github.io/img-hub/ on merge to `main` |
